@@ -1,17 +1,23 @@
 import socket
-import sys
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def wrap_message(reciever, message):
+    return reciever+"\n"+message
 
-server_address = ('localhost', 10000)
-print('connecting from {} to port {}'.format(*server_address))
-sock.connect(server_address)
-
+ClientMultiSocket = socket.socket()
+host = '127.0.0.1'
+port = 9001
+print('Waiting for connection response')
 try:
-    message = b'This is the message. It will be repeated.'
-    print('sending {!r}'.format(message))
-    sock.sendall(message)
-
-finally:
-    print('closing socket')
-    sock.close()
+    ClientMultiSocket.connect((host, port))
+except socket.error as e:
+    print(str(e))
+res = ClientMultiSocket.recv(1024)
+while True:
+    reciever = input('Enter the recipient number(enter NONE if you want to stop messaging):')
+    if(reciever == "NONE"):
+        break
+    message = input("Message: ")
+    ClientMultiSocket.send(str.encode(wrap_message(reciever, message)))
+    res = ClientMultiSocket.recv(1024)
+    print(res.decode('utf-8'))
+ClientMultiSocket.close()
