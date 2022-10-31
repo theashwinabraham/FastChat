@@ -1,5 +1,5 @@
 def parse_message(message):
-    l =  message.split()
+    l =  message.split("\n")
     return [int(l[0]), l[1]]
 
 class client_handler:

@@ -5,7 +5,7 @@ from client_handler import *
 
 ServerSideSocket = socket.socket()
 host = '127.0.0.1'
-port = 9001
+port = 9000
 ThreadCount = 0
 
 try:
