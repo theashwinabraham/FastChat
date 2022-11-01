@@ -1,9 +1,9 @@
 from socket import *
-from typing_extensions import Self
+# from typing_extensions import Self
 
 class port_selector:
     port_no = -1
-    @classmethod  
+    @classmethod
     def select_port_number(cls):
         if(cls.port_no != -1): return cls.port_no
         port_num = 9000
