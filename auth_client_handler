@@ -1,0 +1,13 @@
+import psycopg2
+import threading
+import socket
+
+class auth_client_handler:
+    host = '127.0.0.1'
+    port = 10000
+    ThreadCount = 0
+
+    #interact with the user
+    def interact(Client):
+        assert(isinstance(Client, socket.socket))
+        Client.send("")
