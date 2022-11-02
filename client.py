@@ -1,6 +1,7 @@
 import socket
 from threading import *
 import psycopg2
+import json 
 
 def message_sender(ClientMultiSocket):
     prompt = 'Enter the recipient number(enter NONE if you want to stop messaging):'
@@ -25,8 +26,13 @@ def message_reciever(ClientMultiSocket):
 def wrap_message(reciever, message):
     return reciever+"\n"+message
 
-def verify_with_server(uname, upwd):
-    pass
+def verify_with_server(username, passsword, server):
+    assert(isinstance(server, socket.socket))
+    auth_data = {"username": username, "password": passsword}
+    auth_data = json.dumps(auth_data)
+    server.send(bytes(auth_data, encoding='utf-8'))
+    data = server.recv(1024)
+    print(data)
 
 def add_to_server(uname, upwd):
     pass
@@ -38,38 +44,37 @@ def connect_to_sql(params):
     conn = psycopg2.connect(**params)
     pass
 
-choice = input("Press 0 for login and 1 for signup")
-if choice == "1":
-    uname = input("Enter username")
-    upwd = input("Enter password")
-    add_to_server(uname, upwd)
-    make_user_sql(uname, upwd)
-    pass
-else:
-    uname = input("Enter your username")
-    upwd = input("Enter your password")
-    verify_with_server(uname, upwd)
-    pass
-
-connect_to_sql()
-
+def authenticate(server):
+    assert(isinstance(server, socket.socket))
+    choice = input("Press 0 for login and 1 for signup: ")
+    if choice == "1":
+        username = input("Enter username: ")
+        password = input("Enter password: ")
+        add_to_server(username, password)
+        make_user_sql(username, password)
+        pass
+    else:
+        username = input("Enter your username: ")
+        password = input("Enter your password: ")
+        verify_with_server(username, password, server)
+        pass
 
 ClientMultiSocket = socket.socket()
 host = '127.0.0.1'
 port = 9000
 print('Waiting for connection response')
 try:
+    port = 10001
     ClientMultiSocket.connect((host, port))
 except socket.error as e:
     print(str(e))
-res = ClientMultiSocket.recv(1024)
+authenticate(ClientMultiSocket)
+# res = ClientMultiSocket.recv(1024)
 
-print('Enter your username: ')
+# receiving_thread = Thread(target=message_reciever, args=(ClientMultiSocket, ))
+# sending_thread = Thread(target=message_sender, args=(ClientMultiSocket, ))
+# receiving_thread.start()
+# sending_thread.start()
 
-
-receiving_thread = Thread(target=message_reciever, args=(ClientMultiSocket, ))
-sending_thread = Thread(target=message_sender, args=(ClientMultiSocket, ))
-receiving_thread.start()
-sending_thread.start()
 # ClientMultiSocket.close()
 
