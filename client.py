@@ -1,6 +1,5 @@
 import socket
 from threading import *
-import sqlite3
 
 def message_sender(ClientMultiSocket):
     prompt = 'Enter the recipient number(enter NONE if you want to stop messaging):'
