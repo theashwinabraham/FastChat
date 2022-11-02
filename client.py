@@ -32,7 +32,12 @@ def verify_with_server(username, passsword, server):
     auth_data = json.dumps(auth_data)
     server.send(bytes(auth_data, encoding='utf-8'))
     data = server.recv(1024)
-    print(data)
+    data = json.loads(data)
+    if(data == {}):
+        print("authentication failed")
+        return False
+    else:
+        return data
 
 def add_to_server(uname, upwd):
     pass
@@ -56,8 +61,7 @@ def authenticate(server):
     else:
         username = input("Enter your username: ")
         password = input("Enter your password: ")
-        verify_with_server(username, password, server)
-        pass
+        return verify_with_server(username, password, server)
 
 ClientMultiSocket = socket.socket()
 host = '127.0.0.1'
@@ -68,13 +72,23 @@ try:
     ClientMultiSocket.connect((host, port))
 except socket.error as e:
     print(str(e))
-authenticate(ClientMultiSocket)
-# res = ClientMultiSocket.recv(1024)
 
-# receiving_thread = Thread(target=message_reciever, args=(ClientMultiSocket, ))
-# sending_thread = Thread(target=message_sender, args=(ClientMultiSocket, ))
-# receiving_thread.start()
-# sending_thread.start()
+data = authenticate(ClientMultiSocket)
+if not data:
+    exit(-1)
+host, port = (data['host'], data['port'])
+ClientMultiSocket.close()
+#connect to the new server
+ClientMultiSocket = socket.socket()
+try:
+    ClientMultiSocket.connect((host, port))
+except socket.error as e:
+    print(e)
+ClientMultiSocket.recv(1024)
+receiving_thread = Thread(target=message_reciever, args=(ClientMultiSocket, ))
+sending_thread = Thread(target=message_sender, args=(ClientMultiSocket, ))
+receiving_thread.start()
+sending_thread.start()
 
-# ClientMultiSocket.close()
+ClientMultiSocket.close()
 

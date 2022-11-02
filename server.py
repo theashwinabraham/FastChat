@@ -14,7 +14,6 @@ except socket.error as e:
     print(str(e))
 print('Socket is listening..')
 ServerSideSocket.listen(1)
-
 message_distributor = Thread(target = client_handler.distribute_messages)
 message_distributor.start()
 while True:
