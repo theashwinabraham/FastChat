@@ -34,6 +34,7 @@ class auth_client_handler:
                 else:
                     Client.send(b"{}")
         print("connection closed")
+        connection.commit()
 
     def validate_user(cursor, auth_data):
         cmd = "SELECT * FROM AUTH_DATA WHERE USERNAME = '{usr}'".format(usr = auth_data['username'])
