@@ -1,5 +1,6 @@
 import socket
 import json
+import end2end
 
 #IMPORTANT CHANGE:
 # let each thread have its own cursor, cursors are not thread safe 
@@ -14,8 +15,9 @@ class auth_client_handler:
     def interact(Client, connection):
         assert(isinstance(Client, socket.socket))
         cursor = connection.cursor()
+        Client = end2end.createComunicator(Client, 100)
         while True:
-            auth_data = Client.recv(1024)
+            auth_data = Client.recv()
             if not auth_data:
                 break
             auth_data = json.loads(auth_data.decode("utf-8"))

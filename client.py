@@ -2,6 +2,7 @@ import socket
 from threading import *
 import psycopg2
 import json 
+import end2end
 
 def message_sender(Client):
     prompt = 'Enter the recipient number(enter NONE if you want to stop messaging):'
@@ -28,10 +29,11 @@ def wrap_message(reciever, message):
 
 def verify_with_server(username, password, server):
     assert(isinstance(server, socket.socket))
+    server = end2end.createComunicator(server, 100)
     auth_data = {"username": username, "password": password, 'action': 0}
     auth_data = json.dumps(auth_data)
     server.send(bytes(auth_data, encoding='utf-8'))
-    data = server.recv(1024)
+    data = server.recv()
     data = json.loads(data)
     if(data == {}):
         print("authentication failed")
@@ -41,10 +43,11 @@ def verify_with_server(username, password, server):
 
 def add_to_server(username, password, server):
     assert(isinstance(server, socket.socket))
+    server = end2end.createComunicator(server, 100)
     auth_data = {"username": username, "password": password, 'action':1}
     auth_data = json.dumps(auth_data)
     server.send(bytes(auth_data, encoding='utf-8'))
-    data = server.recv(1024)
+    data = server.recv()
     data = json.loads(data)
     if(data == {}):
         return False
