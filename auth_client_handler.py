@@ -1,5 +1,3 @@
-import psycopg2
-import threading
 import socket
 import json
 
@@ -21,12 +19,20 @@ class auth_client_handler:
             if not auth_data:
                 break
             auth_data = json.loads(auth_data.decode("utf-8"))
-            if auth_client_handler.validate_user(cursor, auth_data):
-                T = LoadBalancer.getHostAndPort()
-                T = json.dumps(T)
-                Client.send(bytes(T , encoding= 'utf-8'))
-            else:
-                Client.send(b"{}")
+            if(auth_data['action'] == 0):
+                if auth_client_handler.validate_user(cursor, auth_data):
+                    T = LoadBalancer.getHostAndPort()
+                    T = json.dumps(T)
+                    Client.send(bytes(T , encoding= 'utf-8'))
+                else:
+                    Client.send(b"{}")
+            elif(auth_data['action'] == 1):
+                if auth_client_handler.addUser(cursor, auth_data):
+                    T = LoadBalancer.getHostAndPort()
+                    T = json.dumps(T)
+                    Client.send(bytes(T , encoding= 'utf-8'))
+                else:
+                    Client.send(b"{}")
         print("connection closed")
 
     def validate_user(cursor, auth_data):
@@ -38,6 +44,16 @@ class auth_client_handler:
                 return True
         return False
 
+    def addUser(cursor, auth_data):
+        # assert(isinstance(cursor, psycopg2.cursor))
+        cmd = "INSERT INTO AUTH_DATA (USERNAME, PASSWORD) VALUES ('{}', '{}')".format(auth_data['username'], auth_data['password'])
+        print(cmd)
+        try:
+            cursor.execute(cmd)
+        except Exception as e:
+            print(e)
+            return False
+        return True
 class LoadBalancer:
     def getHostAndPort():
         host = '127.0.0.1'

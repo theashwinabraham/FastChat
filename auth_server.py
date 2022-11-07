@@ -24,7 +24,7 @@ sql_cur = sql_conn.cursor()
 #     PASSWORD TEXT
 # );''')
 # sql_conn.commit()
-
+    
 #create the server socket
 auth_server = socket.socket()
 auth_server.bind((host, port))
