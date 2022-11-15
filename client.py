@@ -145,7 +145,7 @@ class Chat(App):
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Enter the name of the receiver", id="recv")
         yield Input(placeholder="Message", id="msg")
-        yield input_box()
+        yield self.inbox
 
     def on_input_submitted(self):
         inbox = self.query_one(input_box)
@@ -154,6 +154,15 @@ class Chat(App):
         inbox.messages = "sent: " + msg.value + "\n" + inbox.messages
         Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
         msg.value = ""
+
+    # def receive_messages(self, Client):
+    #     while True:
+    #         res = Client.recv(1024)
+    #         if not res:
+    #             break
+    #         res = res.decode()
+    #         inbox = self.query_one(input_box)
+    #         inbox.messages = res + "\n" + inbox.messages
 
 app = Chat(Client)
 app.run()
