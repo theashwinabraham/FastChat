@@ -8,7 +8,7 @@ import sys
 #imports for the UI
 from textual.app import App, ComposeResult
 from textual.widget import Widget
-from textual.widgets import Input
+from textual.widgets import Input, Header, Footer
 from textual.reactive import reactive
 
 def message_sender(Client):
@@ -116,9 +116,7 @@ print("Please enter your name: ", end="", flush=True)
 name = input()
 Client.sendall(bytes(name, "utf-8"))
 Client.recv(1024)
-# receiving_thread = threading.Thread(target=message_reciever, args=(Client, ))
-# receiving_thread.start()
-#..........................................................#
+#User interface
 class input_box(Widget):
     messages = reactive("")
     msg = ""
@@ -136,6 +134,8 @@ class input_box(Widget):
 
 class Chat(App):
 
+    BINDINGS = [("q", "quit", "Quit")]
+
     def __init__(self, Client):
         super().__init__()
         self.inbox = input_box()
@@ -146,32 +146,17 @@ class Chat(App):
         yield Input(placeholder="Enter the name of the receiver", id="recv")
         yield Input(placeholder="Message", id="msg")
         yield self.inbox
+        yield Header(name = "FastChat", show_clock=True)
+        yield Footer()
 
     def on_input_submitted(self):
         inbox = self.query_one(input_box)
         msg = self.query_one("#msg", Input)
         recv = self.query_one("#recv", Input)
+        if msg.value != "": pass
         inbox.messages = "sent: " + msg.value + "\n" + inbox.messages
         Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
         msg.value = ""
 
-    # def receive_messages(self, Client):
-    #     while True:
-    #         res = Client.recv(1024)
-    #         if not res:
-    #             break
-    #         res = res.decode()
-    #         inbox = self.query_one(input_box)
-    #         inbox.messages = res + "\n" + inbox.messages
-
 app = Chat(Client)
 app.run()
-#..........................................................#
-# receiving_thread = threading.Thread(target=message_reciever, args=(Client, ))
-# sending_thread = threading.Thread(target=message_sender, args=(Client, ))
-# receiving_thread.start()
-# sending_thread.start()
-# #need to join. Do this step, else the main thread closes the connection while the other threads are using it
-# sending_thread.join()
-# receiving_thread.join()
-# Client.close()
