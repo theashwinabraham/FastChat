@@ -1,11 +1,13 @@
 import socket
-from threading import *
+import threading
 import psycopg2
 import json 
 import end2end
+import ports
+import sys
 
 def message_sender(Client):
-    prompt = 'Enter the recipient number(enter NONE if you want to stop messaging):'
+    prompt = 'Enter the recipient name: '
     while True:
         reciever = input(prompt)
         if(reciever == "NONE"):
@@ -16,12 +18,17 @@ def message_sender(Client):
         # print(res.decode('utf-8'))
 
 def message_reciever(Client):
-    prompt = 'Enter the recipient number(enter NONE if you want to stop messaging):'
+    prompt = 'Enter the recipient name: '
     while True:
         res = Client.recv(1024)
         if not res:
             break
-        print("\nReceived: ", res.decode('utf-8'))
+        #delete the old prompt and print the received message
+        # a = sys.stdin.read(1)
+        # print("a: ", a, flush=True)
+        print("\r", flush=True, end="")
+        sys.stdout.write("\033[K")
+        print("Received: ", res.decode('utf-8'))
         print(prompt, end = "", flush=True)
 
 def wrap_message(reciever, message):
@@ -84,7 +91,7 @@ host = '127.0.0.1'
 port = 9000
 print('Waiting for connection response')
 try:
-    port = 10001
+    port = ports.auth_server_port
     Client.connect((host, port))
 except socket.error as e:
     print(str(e))
@@ -100,12 +107,15 @@ try:
     Client.connect((host, port))
 except socket.error as e:
     print(e)
+print("Please enter your name: ", end="", flush=True)
+name = input()
+Client.sendall(bytes(name, "utf-8"))
 Client.recv(1024)
-receiving_thread = Thread(target=message_reciever, args=(Client, ))
-sending_thread = Thread(target=message_sender, args=(Client, ))
+receiving_thread = threading.Thread(target=message_reciever, args=(Client, ))
+sending_thread = threading.Thread(target=message_sender, args=(Client, ))
 receiving_thread.start()
 sending_thread.start()
-#need to join do this step, else the main thread closes the connection while the other threads are using it
+#need to join. Do this step, else the main thread closes the connection while the other threads are using it
 sending_thread.join()
 receiving_thread.join()
-Client.close() 
+Client.close()

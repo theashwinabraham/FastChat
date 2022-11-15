@@ -1,6 +1,7 @@
 import socket
 import json
 import end2end
+import ports
 
 #IMPORTANT CHANGE:
 # let each thread have its own cursor, cursors are not thread safe 
@@ -12,7 +13,8 @@ class auth_client_handler:
     ThreadCount = 0
 
     #interact with the user
-    def interact(Client, connection):
+    @classmethod
+    def interact(cls, Client, connection):
         assert(isinstance(Client, socket.socket))
         cursor = connection.cursor()
         Client = end2end.createComunicator(Client, 100)
@@ -37,8 +39,8 @@ class auth_client_handler:
                     Client.send(b"{}")
         print("connection closed")
         connection.commit()
-
-    def validate_user(cursor, auth_data):
+    @classmethod
+    def validate_user(cls, cursor, auth_data):
         cmd = "SELECT * FROM AUTH_DATA WHERE USERNAME = '{usr}'".format(usr = auth_data['username'])
         cursor.execute(cmd)
         data = cursor.fetchall()
@@ -46,8 +48,8 @@ class auth_client_handler:
             if (auth_data['password'] == data[0][1]):
                 return True
         return False
-
-    def addUser(cursor, auth_data):
+    @classmethod
+    def addUser(cls, cursor, auth_data):
         # assert(isinstance(cursor, psycopg2.cursor))
         cmd = "INSERT INTO AUTH_DATA (USERNAME, PASSWORD) VALUES ('{}', '{}')".format(auth_data['username'], auth_data['password'])
         print(cmd)
@@ -58,7 +60,9 @@ class auth_client_handler:
             return False
         return True
 class LoadBalancer:
-    def getHostAndPort():
-        host = '127.0.0.1'
-        port = 9000
+    @classmethod
+    def getHostAndPort(cls):
+        #add code to distribute the client load optimally among servers
+        host = ports.auth_server_host
+        port = ports.server_port
         return {'host': host, 'port':port}

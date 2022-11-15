@@ -7,16 +7,17 @@ import psycopg2
 from threading import *
 import socket
 from auth_client_handler import *
+import ports
 
 #host and port
-host = '127.0.0.1'
-port = 10001
+host = ports.auth_server_host
+port = ports.auth_server_port
 ThreadCount = 0
 
 #connect to psycopg2
 sql_conn = psycopg2.connect(database="authdb", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
 sql_cur = sql_conn.cursor()
-#create a database of usernames and passwords
+#create a table of usernames and passwords
 # sql_cur.execute('''DROP TABLE AUTH_DATA''')
 sql_cur.executemany('''
     SELECT EXISTS(
