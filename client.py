@@ -11,33 +11,37 @@ from textual.widget import Widget
 from textual.widgets import Input, Header, Footer
 from textual.reactive import reactive
 
-def message_sender(Client):
-    prompt = 'Enter the recipient name: '
-    while True:
-        reciever = input(prompt)
-        if(reciever == "NONE"):
-            break
-        message = input("Message: ")
-        Client.sendall(str.encode(wrap_message(reciever, message)))
-        # res = Client.recv(1024)
-        # print(res.decode('utf-8'))
+# def message_sender(Client):
+#     prompt = 'Enter the recipient name: '
+#     while True:
+#         reciever = input(prompt)
+#         if(reciever == "NONE"):
+#             break
+#         message = input("Message: ")
+#         Client.sendall(str.encode(wrap_message(reciever, message)))
+#         # res = Client.recv(1024)
+#         # print(res.decode('utf-8'))
 
-def message_reciever(Client):
-    prompt = 'Enter the recipient name: '
-    while True:
-        res = Client.recv(1024)
-        if not res:
-            break
-        #delete the old prompt and print the received message
-        # a = sys.stdin.read(1)
-        # print("a: ", a, flush=True)
-        print("\r", flush=True, end="")
-        sys.stdout.write("\033[K")
-        print("Received: ", res.decode('utf-8'))
-        print(prompt, end = "", flush=True)
+# def message_reciever(Client):
+#     prompt = 'Enter the recipient name: '
+#     while True:
+#         res = Client.recv(1024)
+#         if not res:
+#             break
+#         #delete the old prompt and print the received message
+#         # a = sys.stdin.read(1)
+#         # print("a: ", a, flush=True)
+#         print("\r", flush=True, end="")
+#         sys.stdout.write("\033[K")
+#         print("Received: ", res.decode('utf-8'))
+#         print(prompt, end = "", flush=True)
 
 def wrap_message(reciever, message):
     return reciever+"\n"+message
+
+def parse_message(message):
+    l =  message.split("\n")
+    return [l[0], l[1]]
 
 def verify_with_server(username, password, server):
     assert(isinstance(server, socket.socket))
@@ -129,8 +133,8 @@ class input_box(Widget):
             res = Client.recv(1024)
             if not res:
                 break
-            res = res.decode()
-            self.messages = "received: " + res + "\n" + self.messages
+            res = parse_message(res.decode())
+            self.messages = res[0] + " sent: " + res[1] + "\n" + self.messages
 
 class Chat(App):
 

@@ -33,7 +33,7 @@ class client_handler:
             if(self.message_buffer != []):
                 while len(self.message_buffer):
                     print("Message from the display_message thread: ", self.message_buffer[0])
-                    self.active_threads[self.message_buffer[0][0]][3].sendall(str.encode(self.message_buffer[0][1]))
+                    self.active_threads[self.message_buffer[0][0]][3].sendall(str.encode(self.message_buffer[0][2] + "\n" + self.message_buffer[0][1]))
                     self.message_buffer = self.message_buffer[1:]
     @classmethod
     def distribute_messages(cls):
