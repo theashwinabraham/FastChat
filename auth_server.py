@@ -19,21 +19,11 @@ sql_conn = psycopg2.connect(database="authdb", user="ananth", password="ananth",
 sql_cur = sql_conn.cursor()
 #create a table of usernames and passwords
 # sql_cur.execute('''DROP TABLE AUTH_DATA''')
-sql_cur.executemany('''
-    SELECT EXISTS(
-        SELECT FROM 
-            pg_tables
-        WHERE 
-            tablename = 'AUTH_DATA' 
-    );
-''', '''
-    IF (EXISTS IS NULL)
-    THEN
-        CREATE TABLE AUTH_DATA(
+sql_cur.execute('''
+    CREATE TABLE IF NOT EXISTS AUTH_DATA(
         USERNAME TEXT PRIMARY KEY,
         PASSWORD TEXT
         );
-    END IF;
 ''')
 sql_conn.commit()
 
