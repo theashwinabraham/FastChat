@@ -5,6 +5,11 @@ import json
 import end2end
 import ports
 import sys
+#imports for the UI
+from textual.app import App, ComposeResult
+from textual.widget import Widget
+from textual.widgets import Input
+from textual.reactive import reactive
 
 def message_sender(Client):
     prompt = 'Enter the recipient name: '
@@ -89,7 +94,7 @@ def authenticate(server):
 Client = socket.socket()
 host = '127.0.0.1'
 port = 9000
-print('Waiting for connection response')
+# print('Waiting for connection response')
 try:
     port = ports.auth_server_port
     Client.connect((host, port))
@@ -111,11 +116,53 @@ print("Please enter your name: ", end="", flush=True)
 name = input()
 Client.sendall(bytes(name, "utf-8"))
 Client.recv(1024)
-receiving_thread = threading.Thread(target=message_reciever, args=(Client, ))
-sending_thread = threading.Thread(target=message_sender, args=(Client, ))
-receiving_thread.start()
-sending_thread.start()
-#need to join. Do this step, else the main thread closes the connection while the other threads are using it
-sending_thread.join()
-receiving_thread.join()
-Client.close()
+# receiving_thread = threading.Thread(target=message_reciever, args=(Client, ))
+# receiving_thread.start()
+#..........................................................#
+class input_box(Widget):
+    messages = reactive("")
+    msg = ""
+    #renders the text on the screen
+    def render(self) -> str:
+        return self.messages
+    #receives messages from the server
+    def receive_messages(self, Client: socket.socket) -> None:
+        while True:
+            res = Client.recv(1024)
+            if not res:
+                break
+            res = res.decode()
+            self.messages = "received: " + res + "\n" + self.messages
+
+class Chat(App):
+
+    def __init__(self, Client):
+        super().__init__()
+        self.inbox = input_box()
+        self.receiving_thread = threading.Thread(target=input_box.receive_messages, args=(self.inbox, Client))
+        self.receiving_thread.start()
+
+    def compose(self) -> ComposeResult:
+        yield Input(placeholder="Enter the name of the receiver", id="recv")
+        yield Input(placeholder="Message", id="msg")
+        yield input_box()
+
+    def on_input_submitted(self):
+        inbox = self.query_one(input_box)
+        msg = self.query_one("#msg", Input)
+        recv = self.query_one("#recv", Input)
+        inbox.messages = "sent: " + msg.value + "\n" + inbox.messages
+        Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
+        msg.value = ""
+
+app = Chat(Client)
+app.run()
+#..........................................................#
+# receiving_thread = threading.Thread(target=message_reciever, args=(Client, ))
+# sending_thread = threading.Thread(target=message_sender, args=(Client, ))
+# receiving_thread.start()
+# sending_thread.start()
+# #need to join. Do this step, else the main thread closes the connection while the other threads are using it
+# sending_thread.join()
+# receiving_thread.join()
+# Client.close()
