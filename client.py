@@ -153,7 +153,8 @@ class Chat(App):
         inbox = self.query_one(input_box)
         msg = self.query_one("#msg", Input)
         recv = self.query_one("#recv", Input)
-        if msg.value != "": pass
+        if msg.value == "": 
+            return  
         inbox.messages = "sent: " + msg.value + "\n" + inbox.messages
         Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
         msg.value = ""
