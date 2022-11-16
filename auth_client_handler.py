@@ -2,6 +2,7 @@ import socket
 import json
 import end2end
 import ports
+import random
 
 #IMPORTANT CHANGE:
 # let each thread have its own cursor, cursors are not thread safe 
@@ -11,7 +12,7 @@ class auth_client_handler:
     host = '127.0.0.1'
     port = 10000
     ThreadCount = 0
-
+    server_key = "7ng#$(b4Wpd!f7zM" #this is passed in the json object by the servers which are trying to connect with the auth_server
     #interact with the user
     @classmethod
     def interact(cls, Client, connection):
@@ -23,16 +24,23 @@ class auth_client_handler:
             if not auth_data:
                 break
             auth_data = json.loads(auth_data.decode("utf-8"))
+            try:
+                if auth_data['server_key'] == cls.server_key:
+                    print(f"server {auth_data['id']} connected")
+                    LoadBalancer.addServer(Client, auth_data['id'])
+                    return
+            except Exception:
+                pass
             if(auth_data['action'] == 0):
                 if auth_client_handler.validate_user(cursor, auth_data):
-                    T = LoadBalancer.getHostAndPort()
+                    T = LoadBalancer.getHostAndPort(auth_data['username'])
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
                 else:
                     Client.send(b"{}")
             elif(auth_data['action'] == 1):
                 if auth_client_handler.addUser(cursor, auth_data):
-                    T = LoadBalancer.getHostAndPort()
+                    T = LoadBalancer.getHostAndPort(auth_data['username'])
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
                 else:
@@ -60,9 +68,16 @@ class auth_client_handler:
             return False
         return True
 class LoadBalancer:
+    Servers = []
     @classmethod
-    def getHostAndPort(cls):
+    def getHostAndPort(cls, username):
         #add code to distribute the client load optimally among servers
-        host = ports.auth_server_host
+        host = ports.server_host
         port = ports.server_port
-        return {'host': host, 'port':port}
+        otp = random.randint(10000, 99999)
+        # print(cls.Servers)
+        cls.Servers[0][0].send(bytes(json.dumps({'username':username, 'otp':otp}), "utf-8"))
+        return {'host': host, 'port':port, 'otp': otp}
+    @classmethod
+    def addServer(cls, Client, id):
+        cls.Servers.append((Client, id))

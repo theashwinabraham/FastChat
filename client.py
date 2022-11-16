@@ -35,7 +35,6 @@ from textual.reactive import reactive
 #         sys.stdout.write("\033[K")
 #         print("Received: ", res.decode('utf-8'))
 #         print(prompt, end = "", flush=True)
-
 def wrap_message(reciever, message):
     return reciever+"\n"+message
 
@@ -89,11 +88,11 @@ def authenticate(server):
                 print("The entered username is not available")
                 continue
             else:
-                return res            
+                return (res, username, password)            
     else:
         username = input("Enter your username: ")
         password = input("Enter your password: ")
-        return verify_with_server(username, password, server)
+        return (verify_with_server(username, password, server), username, password)
 
 Client = socket.socket()
 host = '127.0.0.1'
@@ -105,10 +104,11 @@ try:
 except socket.error as e:
     print(str(e))
 
-data = authenticate(Client)
+res = authenticate(Client)
+data, username, password = res
 if not data:
     exit(-1)
-host, port = (data['host'], data['port'])
+host, port, otp = (data['host'], data['port'], data['otp'])
 Client.close()
 #connect to the new server
 Client = socket.socket()
@@ -116,10 +116,18 @@ try:
     Client.connect((host, port))
 except socket.error as e:
     print(e)
+print(username, password)
 print("Please enter your name: ", end="", flush=True)
 name = input()
 Client.sendall(bytes(name, "utf-8"))
 Client.recv(1024)
+payload = json.dumps({'username':username, 'otp':otp})
+Client.send(bytes(payload, "utf-8"))
+res = Client.recv(1024)
+res = res.decode()
+if res == "0":
+    print("Connection unsuccessful")
+    exit(-1)
 #User interface
 class input_box(Widget):
     messages = reactive("")

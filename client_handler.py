@@ -1,4 +1,8 @@
 import threading
+import socket
+import end2end
+import json
+import sys
 
 def parse_message(message):
     l =  message.split("\n")
@@ -6,6 +10,12 @@ def parse_message(message):
 
 #class to handle the clients(to receive and distribute messages)
 class client_handler:
+    #key which is used by the auth_server to recognize this as a server
+    server_key = "7ng#$(b4Wpd!f7zM"
+    #stores the id of the server
+    server_id = int(sys.argv[1])
+    #stores the otps corresponding to each client
+    otp_dict = {}
     #stores all the messages that are to be dispatched
     message_dump = []
     #stores all the active threads
@@ -17,6 +27,8 @@ class client_handler:
     #waits and receives messages from the client
     def multi_threaded_client(self, connection):
         connection.send(str.encode('Server is working:'))
+        if not self.checkClientOtp(connection):
+            return
         while True:
             data = connection.recv(2048)
             if not data:
@@ -39,9 +51,12 @@ class client_handler:
     def distribute_messages(cls):
         while True:
             while len(cls.message_dump):
-                print(len(cls.message_dump))
-                print(cls.message_dump[0], flush=True)
-                cls.active_threads[cls.message_dump[0][0]][0].message_buffer.append(cls.message_dump[0])
+                try:
+                    print(len(cls.message_dump))
+                    print(cls.message_dump[0], flush=True)
+                    cls.active_threads[cls.message_dump[0][0]][0].message_buffer.append(cls.message_dump[0])
+                except Exception as e:
+                    print(e)
                 cls.message_dump = cls.message_dump[1:]
     @classmethod
     def getClientName(cls, Client):
@@ -54,3 +69,34 @@ class client_handler:
         t1.start()
         client_handler.active_threads[name] = (obj, t, t1, Client)
         print(client_handler.active_threads, flush=True)
+    @classmethod
+    def authServerInterface(cls, auth_host, auth_port):
+        communicator = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        communicator.connect((auth_host, auth_port))
+        serverPayload = {"server_key":cls.server_key, 'id':cls.server_id}
+        serverPayload = json.dumps(serverPayload)
+        communicator = end2end.createComunicator(communicator, 100)
+        communicator.send(bytes(serverPayload, "utf-8"))
+        while(True):
+            res = communicator.recv()
+            if not res:
+                break
+            res = res.decode()
+            assert(isinstance(res, str))
+            res = json.loads(res)
+            cls.otp_dict[res['username']] = res['otp']
+    def checkClientOtp(self, Client):
+        res = Client.recv(1024)
+        res = json.loads(res.decode())
+        # print("res: ", res)
+        # print(self.otp_dict)
+        if res['otp'] == self.otp_dict[res['username']]:
+            Client.send(b"1")
+            self.otp_dict.pop(res['username'])
+            return True
+        else:
+            Client.send(b"0")
+            Client.close()
+            self.active_threads.pop(self.client_name)
+            self.otp_dict.pop(res['username'])
+            return False

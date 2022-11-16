@@ -4,7 +4,7 @@
 # If they match, forward to other servers (load balancing)
 
 import psycopg2
-from threading import *
+import threading
 import socket
 from auth_client_handler import *
 import ports
@@ -18,7 +18,6 @@ ThreadCount = 0
 sql_conn = psycopg2.connect(database="authdb", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
 sql_cur = sql_conn.cursor()
 #create a table of usernames and passwords
-# sql_cur.execute('''DROP TABLE AUTH_DATA''')
 sql_cur.execute('''
     CREATE TABLE IF NOT EXISTS AUTH_DATA(
         USERNAME TEXT PRIMARY KEY,
@@ -35,5 +34,5 @@ auth_server.listen(1)
 while True:
     Client, address = auth_server.accept()
     print ("connected")
-    conn = Thread(target=auth_client_handler.interact, args = (Client,sql_conn))
+    conn = threading.Thread(target=auth_client_handler.interact, args = (Client,sql_conn))
     conn.start()
