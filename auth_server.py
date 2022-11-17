@@ -15,16 +15,18 @@ port = ports.auth_server_port
 ThreadCount = 0
 
 #connect to psycopg2
-sql_conn = psycopg2.connect(database="authdb", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
-sql_cur = sql_conn.cursor()
+sql_auth_conn = psycopg2.connect(database="authdb", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
+sql_auth_cur = sql_auth_conn.cursor()
 #create a table of usernames and passwords
-sql_cur.execute('''
+sql_auth_cur.execute('''
     CREATE TABLE IF NOT EXISTS AUTH_DATA(
         USERNAME TEXT PRIMARY KEY,
         PASSWORD TEXT
         );
 ''')
-sql_conn.commit()
+sql_auth_conn.commit()
+
+sql_msg_conn = psycopg2.connect(database="msg_storage", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
 
 #create the server socket
 auth_server = socket.socket()
@@ -34,5 +36,5 @@ auth_server.listen(1)
 while True:
     Client, address = auth_server.accept()
     print ("connected")
-    conn = threading.Thread(target=auth_client_handler.interact, args = (Client,sql_conn))
+    conn = threading.Thread(target=auth_client_handler.interact, args = (Client,sql_auth_conn, sql_msg_conn))
     conn.start()

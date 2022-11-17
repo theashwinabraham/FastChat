@@ -3,6 +3,7 @@ import socket
 import end2end
 import json
 import sys
+import time
 
 def parse_message(message):
     l =  message.split("\n")
@@ -20,33 +21,50 @@ class client_handler:
     message_dump = []
     #stores all the active threads
     active_threads = dict()
-    def __init__(self, name) :
+    def __init__(self, name ,client) :
         #stores the pending messages to be sent to each client
         self.message_buffer = []
         self.client_name = name
+        self.client = client
     #waits and receives messages from the client
-    def multi_threaded_client(self, connection):
+    def multi_threaded_client(self, connection, sql_msg_conn):
         connection.send(str.encode('Server is working:'))
         if not self.checkClientOtp(connection):
             return
+        cursor = sql_msg_conn.cursor()
         while True:
             data = connection.recv(2048)
             if not data:
                 break  
             L = parse_message(data.decode('utf-8'))
             L.append(self.client_name)
-            self.message_dump.append(L)
+            # self.message_dump.append(L)
+            # print(self.message_dump)
+
+            cmd = f"""INSERT INTO {L[0]} (timestamp, message, username) VALUES ('{time.time()}', '{L[1]}', '{L[2]}')"""
+            print(cmd)
+            cursor.execute(cmd)
+            sql_msg_conn.commit()
+
         print("closing the connection")
         self.active_threads.pop(self.client_name)
         connection.close()
     #sends the messages to the client
-    def send_messages(self):
+    def send_messages(self, sql_msg_conn):
+        cursor = sql_msg_conn.cursor()
         while True:
-            if(self.message_buffer != []):
-                while len(self.message_buffer):
-                    print("Message from the display_message thread: ", self.message_buffer[0])
-                    self.active_threads[self.message_buffer[0][0]][3].sendall(str.encode(self.message_buffer[0][2] + "\n" + self.message_buffer[0][1]))
-                    self.message_buffer = self.message_buffer[1:]
+            cursor.execute(f"SELECT timestamp, message, username FROM {self.client_name};")
+
+            for msg in cursor.fetchall():
+                self.client.sendall(str.encode(msg[2] + "\n" + msg[1]))
+                cursor.execute(f"DELETE FROM {self.client_name} WHERE timestamp='{msg[0]}';")
+                sql_msg_conn.commit()
+
+            # if(self.message_buffer != []):
+            #     while len(self.message_buffer):
+            #         print("Message from the display_message thread: ", self.message_buffer[0])
+            #         self.active_threads[self.message_buffer[0][0]][3].sendall(str.encode(self.message_buffer[0][2] + "\n" + self.message_buffer[0][1]))
+            #         self.message_buffer = self.message_buffer[1:]
     @classmethod
     def distribute_messages(cls):
         while True:
@@ -59,13 +77,13 @@ class client_handler:
                     print(e)
                 cls.message_dump = cls.message_dump[1:]
     @classmethod
-    def getClientName(cls, Client):
+    def getClientName(cls, Client, sql_msg_conn):
         print("getting client name", flush=True)
         name = bytes.decode(Client.recv(1024))
-        obj = client_handler(name)
-        t = threading.Thread(target = client_handler.multi_threaded_client, args = (obj, Client))
+        obj = client_handler(name, Client)
+        t = threading.Thread(target = client_handler.multi_threaded_client, args = (obj, Client, sql_msg_conn))
         t.start()
-        t1 = threading.Thread(target = client_handler.send_messages, args = (obj, ))
+        t1 = threading.Thread(target = client_handler.send_messages, args = (obj, sql_msg_conn))
         t1.start()
         client_handler.active_threads[name] = (obj, t, t1, Client)
         print(client_handler.active_threads, flush=True)

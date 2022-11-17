@@ -117,9 +117,9 @@ try:
 except socket.error as e:
     print(e)
 print(username, password)
-print("Please enter your name: ", end="", flush=True)
-name = input()
-Client.sendall(bytes(name, "utf-8"))
+# print("Please enter your name: ", end="", flush=True)
+# name = input()
+Client.sendall(bytes(username, "utf-8"))
 Client.recv(1024)
 payload = json.dumps({'username':username, 'otp':otp})
 Client.send(bytes(payload, "utf-8"))

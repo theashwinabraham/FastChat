@@ -3,6 +3,7 @@ import json
 import end2end
 import ports
 import random
+import psycopg2
 
 #IMPORTANT CHANGE:
 # let each thread have its own cursor, cursors are not thread safe 
@@ -15,9 +16,10 @@ class auth_client_handler:
     server_key = "7ng#$(b4Wpd!f7zM" #this is passed in the json object by the servers which are trying to connect with the auth_server
     #interact with the user
     @classmethod
-    def interact(cls, Client, connection):
+    def interact(cls, Client, auth_connection, msg_connection):
         assert(isinstance(Client, socket.socket))
-        cursor = connection.cursor()
+        auth_cursor = auth_connection.cursor()
+        msg_cursor = msg_connection.cursor()
         Client = end2end.createComunicator(Client, 100)
         while True:
             auth_data = Client.recv()
@@ -32,21 +34,22 @@ class auth_client_handler:
             except Exception:
                 pass
             if(auth_data['action'] == 0):
-                if auth_client_handler.validate_user(cursor, auth_data):
+                if auth_client_handler.validate_user(auth_cursor, auth_data):
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
                 else:
                     Client.send(b"{}")
             elif(auth_data['action'] == 1):
-                if auth_client_handler.addUser(cursor, auth_data):
+                if auth_client_handler.addUser(auth_cursor, auth_data, msg_cursor):
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
                 else:
                     Client.send(b"{}")
         print("connection closed")
-        connection.commit()
+        msg_connection.commit()
+        auth_connection.commit()
     @classmethod
     def validate_user(cls, cursor, auth_data):
         cmd = "SELECT * FROM AUTH_DATA WHERE USERNAME = '{usr}'".format(usr = auth_data['username'])
@@ -57,8 +60,12 @@ class auth_client_handler:
                 return True
         return False
     @classmethod
-    def addUser(cls, cursor, auth_data):
+    def addUser(cls, cursor, auth_data, msg_cursor):
         # assert(isinstance(cursor, psycopg2.cursor))
+
+        if( len(auth_data['username'])==0 or len(auth_data['password'])==0):
+            return False
+
         cmd = "INSERT INTO AUTH_DATA (USERNAME, PASSWORD) VALUES ('{}', '{}')".format(auth_data['username'], auth_data['password'])
         print(cmd)
         try:
@@ -66,6 +73,14 @@ class auth_client_handler:
         except Exception as e:
             print(e)
             return False
+
+        msg_cursor.execute(
+            f"""CREATE TABLE IF NOT EXISTS {auth_data['username']}(
+            timestamp TEXT PRIMARY KEY,
+            message TEXT,
+            username TEXT
+        );""")
+
         return True
 class LoadBalancer:
     Servers = []
