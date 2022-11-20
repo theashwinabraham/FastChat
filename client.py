@@ -5,7 +5,7 @@ import json
 import end2end
 import ports
 import sys
-#imports for the UI
+# imports for the UI
 from textual.app import App, ComposeResult
 from textual.widget import Widget
 from textual.widgets import Input, Header, Footer

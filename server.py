@@ -1,6 +1,6 @@
 import socket
 import threading
-import ports
+import constants
 import sys
 import psycopg2
 
@@ -11,16 +11,16 @@ if len(sys.argv) == 1:
 from client_handler import *
 
 ServerSideSocket = socket.socket()
-host = ports.server_host
-port = ports.server_port
+host = constants.server_host
+port = constants.server_port
 ThreadCount = 0
-auth_host = ports.auth_server_host
-auth_port = ports.auth_server_port
+auth_host = constants.auth_server_host
+auth_port = constants.auth_server_port
 
 try:
     ServerSideSocket.bind((host, port))
 except socket.error as e:
-    print(str(e))
+    print(f'Caught: {e}')
 print('Socket is listening..')
 ServerSideSocket.listen(1)
 authInterface = threading.Thread(target=client_handler.authServerInterface, args=(auth_host, auth_port))
@@ -33,8 +33,8 @@ sql_msg_conn = psycopg2.connect(database="msg_storage", user="ananth", password=
 
 try:
     while True:
-        #we cannot have a recv statement inside this loop
-        #else the server stops accepting connections till the previous connection receives data 
+        # we cannot have a recv statement inside this loop
+        # else the server stops accepting connections till the previous connection receives data 
         Client, address = ServerSideSocket.accept()
         t = threading.Thread(target = client_handler.getClientName, args = (Client, sql_msg_conn))
         t.start()
