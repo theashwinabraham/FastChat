@@ -29,6 +29,7 @@ class client_handler:
         self.message_buffer = []
         self.client_name = name
         self.client = client
+        self.isActive = True
         #create a new table for the user, if it hasn't been created yet
         cursor = sql_connection.cursor()
         cursor.execute(f"""CREATE TABLE IF NOT EXISTS {name}(
@@ -57,12 +58,13 @@ class client_handler:
             sql_msg_conn.commit()
 
         print("closing the connection")
+        self.isActive = False
         self.active_threads.pop(self.client_name)
         connection.close()
     #sends the messages to the client
     def send_messages(self, sql_msg_conn):
         cursor = sql_msg_conn.cursor()
-        while True:
+        while self.isActive:
             cursor.execute(f"SELECT time, message, username FROM {self.client_name};")
 
             for msg in cursor.fetchall():
@@ -77,7 +79,7 @@ class client_handler:
             #         print("Message from the display_message thread: ", self.message_buffer[0])
             #         self.active_threads[self.message_buffer[0][0]][3].sendall(str.encode(self.message_buffer[0][2] + "\n" + self.message_buffer[0][1]))
             #         self.message_buffer = self.message_buffer[1:]
-    @classmethod
+    # @classmethod
     # def distribute_messages(cls):
     #     while True:
     #         while len(cls.message_dump):
