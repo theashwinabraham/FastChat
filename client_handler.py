@@ -4,6 +4,7 @@ import end2end
 import json
 import sys
 import time
+import psycopg2
 
 def parse_message(message):
     l =  message.split("\n")
@@ -21,11 +22,18 @@ class client_handler:
     message_dump = []
     #stores all the active threads
     active_threads = dict()
-    def __init__(self, name ,client) :
+    def __init__(self, name, client, sql_connection) :
         #stores the pending messages to be sent to each client
         self.message_buffer = []
         self.client_name = name
         self.client = client
+        #create a new table for the user, if it hasn't been created yet
+        cursor = sql_connection.cursor()
+        cursor.execute(f"""CREATE TABLE IF NOT EXISTS {name}(
+            TIME TIMESTAMP,
+            MESSAGE TEXT, 
+            USERNAME TEXT
+        )""")
     #waits and receives messages from the client
     def multi_threaded_client(self, connection, sql_msg_conn):
         connection.send(str.encode('Server is working:'))
@@ -41,7 +49,7 @@ class client_handler:
             # self.message_dump.append(L)
             # print(self.message_dump)
 
-            cmd = f"""INSERT INTO {L[0]} (timestamp, message, username) VALUES ('{time.time()}', '{L[1]}', '{L[2]}')"""
+            cmd = f"""INSERT INTO {L[0]} (time, message, username) VALUES (to_timestamp({time.time()}), '{L[1]}', '{L[2]}')"""
             print(cmd)
             cursor.execute(cmd)
             sql_msg_conn.commit()
@@ -53,11 +61,11 @@ class client_handler:
     def send_messages(self, sql_msg_conn):
         cursor = sql_msg_conn.cursor()
         while True:
-            cursor.execute(f"SELECT timestamp, message, username FROM {self.client_name};")
+            cursor.execute(f"SELECT time, message, username FROM {self.client_name};")
 
             for msg in cursor.fetchall():
                 self.client.sendall(str.encode(msg[2] + "\n" + msg[1]))
-                cursor.execute(f"DELETE FROM {self.client_name} WHERE timestamp='{msg[0]}';")
+                cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
 
             # if(self.message_buffer != []):
@@ -80,7 +88,7 @@ class client_handler:
     def getClientName(cls, Client, sql_msg_conn):
         print("getting client name", flush=True)
         name = bytes.decode(Client.recv(1024))
-        obj = client_handler(name, Client)
+        obj = client_handler(name, Client, sql_msg_conn)
         t = threading.Thread(target = client_handler.multi_threaded_client, args = (obj, Client, sql_msg_conn))
         t.start()
         t1 = threading.Thread(target = client_handler.send_messages, args = (obj, sql_msg_conn))
