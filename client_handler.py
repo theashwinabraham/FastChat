@@ -12,6 +12,8 @@ def parse_message(message):
 
 #class to handle the clients(to receive and distribute messages)
 class client_handler:
+    #stores the time interval after which the server checks for messages to be sent
+    latency = 1
     #key which is used by the auth_server to recognize this as a server
     server_key = "7ng#$(b4Wpd!f7zM"
     #stores the id of the server
@@ -64,26 +66,28 @@ class client_handler:
             cursor.execute(f"SELECT time, message, username FROM {self.client_name};")
 
             for msg in cursor.fetchall():
+                print(msg)
                 self.client.sendall(str.encode(msg[2] + "\n" + msg[1]))
                 cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
 
+            time.sleep(self.latency)
             # if(self.message_buffer != []):
             #     while len(self.message_buffer):
             #         print("Message from the display_message thread: ", self.message_buffer[0])
             #         self.active_threads[self.message_buffer[0][0]][3].sendall(str.encode(self.message_buffer[0][2] + "\n" + self.message_buffer[0][1]))
             #         self.message_buffer = self.message_buffer[1:]
     @classmethod
-    def distribute_messages(cls):
-        while True:
-            while len(cls.message_dump):
-                try:
-                    print(len(cls.message_dump))
-                    print(cls.message_dump[0], flush=True)
-                    cls.active_threads[cls.message_dump[0][0]][0].message_buffer.append(cls.message_dump[0])
-                except Exception as e:
-                    print(e)
-                cls.message_dump = cls.message_dump[1:]
+    # def distribute_messages(cls):
+    #     while True:
+    #         while len(cls.message_dump):
+    #             try:
+    #                 print(len(cls.message_dump))
+    #                 print(cls.message_dump[0], flush=True)
+    #                 cls.active_threads[cls.message_dump[0][0]][0].message_buffer.append(cls.message_dump[0])
+    #             except Exception as e:
+    #                 print(e)
+    #             cls.message_dump = cls.message_dump[1:]
     @classmethod
     def getClientName(cls, Client, sql_msg_conn):
         print("getting client name", flush=True)
