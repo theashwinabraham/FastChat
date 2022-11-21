@@ -1,4 +1,4 @@
 server_host = "127.0.0.1"
-server_port = 9001
+server_port = 9003
 auth_server_host = "127.0.0.1"
 auth_server_port = 10003

@@ -31,6 +31,7 @@ authInterface.start()
 
 sql_msg_conn = psycopg2.connect(database="msg_storage", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
 
+
 try:
     while True:
         #we cannot have a recv statement inside this loop
@@ -48,6 +49,6 @@ try:
         # client_handler.active_threads[name] = (obj, t, t1, Client)
         # print(client_handler.active_threads)
         ThreadCount += 1
-        print('Thread Number: ' + str(ThreadCount))
+        # print('Thread Number: ' + str(ThreadCount))
 finally:
     ServerSideSocket.close()

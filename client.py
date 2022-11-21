@@ -4,7 +4,10 @@ import psycopg2
 import json 
 import end2end
 import ports
-import sys
+import rsa
+from cryptography.fernet import Fernet
+import time
+import base64
 #imports for the UI
 from textual.app import App, ComposeResult
 from textual.widget import Widget
@@ -35,6 +38,10 @@ from textual.reactive import reactive
 #         sys.stdout.write("\033[K")
 #         print("Received: ", res.decode('utf-8'))
 #         print(prompt, end = "", flush=True)
+
+#stores the keys for encryption
+keys = {}
+
 def wrap_message(reciever, message):
     return reciever+"\n"+message
 
@@ -44,8 +51,11 @@ def parse_message(message):
 
 def verify_with_server(username, password, server):
     assert(isinstance(server, socket.socket))
+    global pubkey
+    global privkey
+    global keys
     server = end2end.createComunicator(server, 100)
-    auth_data = {"username": username, "password": password, 'action': 0}
+    auth_data = {"username": username, "password": password, 'action':0}
     auth_data = json.dumps(auth_data)
     server.send(bytes(auth_data, encoding='utf-8'))
     data = server.recv()
@@ -54,12 +64,21 @@ def verify_with_server(username, password, server):
         print("authentication failed")
         return False
     else:
+        with open(f"{username}_keys.json", 'r') as key_file:
+            keys = json.load(key_file)
+            pubkey = rsa.PublicKey._load_pkcs1_pem(keys['pubkey'])
+            privkey = rsa.PrivateKey._load_pkcs1_pem(keys['privkey'])
         return data
 
 def add_to_server(username, password, server):
     assert(isinstance(server, socket.socket))
+    #generating the rsa keys
+    global pubkey
+    global privkey
+    global keys
+    pubkey, privkey = rsa.newkeys(1024, poolsize=8)
     server = end2end.createComunicator(server, 100)
-    auth_data = {"username": username, "password": password, 'action':1}
+    auth_data = {"username": username, "password": password, 'action':1, 'pubkey': (pubkey.save_pkcs1(format = "PEM").decode())}
     auth_data = json.dumps(auth_data)
     server.send(bytes(auth_data, encoding='utf-8'))
     data = server.recv()
@@ -67,14 +86,11 @@ def add_to_server(username, password, server):
     if(data == {}):
         return False
     else:
-        return data
-
-def make_user_sql(uname, upwd):
-    pass
-
-def connect_to_sql(params):
-    conn = psycopg2.connect(**params)
-    pass
+        keys['pubkey'] = pubkey.save_pkcs1(format = "PEM").decode()
+        keys['privkey'] = privkey.save_pkcs1(format = "PEM").decode()
+        with open(f"{username}_keys.json", 'w') as key_file:
+            key_file.write(json.dumps(keys))
+        return data    
 
 def authenticate(server):
     assert(isinstance(server, socket.socket))
@@ -93,6 +109,32 @@ def authenticate(server):
         username = input("Enter your username: ")
         password = input("Enter your password: ")
         return (verify_with_server(username, password, server), username, password)
+
+def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
+
+    if receiver in keys.keys():
+        encoding_key = keys[receiver]
+    else:
+        request = {"receiver": receiver, "action": 0}
+        Client.sendall(json.dumps(request).encode())
+        recv_pubkey = Client.recv(2048)
+        if recv_pubkey.decode() == "None":
+            return False
+        recv_pubkey = rsa.PublicKey._load_pkcs1_pem(recv_pubkey)
+        encoding_key = Fernet.generate_key()
+        keys[receiver] = encoding_key.decode()
+        # assert(encoding_key.decode().encode() == encoding_key)
+        encoded_key = rsa.encrypt(encoding_key, recv_pubkey)
+        Client.sendall(encoded_key)
+
+        with open(f"{username}_keys.json", 'w') as key_file:
+            key_file.write(json.dumps(keys))
+
+    f = Fernet(encoding_key)
+    encoded_msg = f.encrypt(msg.encode('utf-8'))
+    msg_dict = {"receiver": receiver, "message": encoded_msg.decode('utf-8'), "action": 1}
+    Client.sendall(json.dumps(msg_dict).encode('utf-8'))
+    return True
 
 Client = socket.socket()
 host = '127.0.0.1'
@@ -138,11 +180,22 @@ class input_box(Widget):
     #receives messages from the server
     def receive_messages(self, Client: socket.socket) -> None:
         while True:
-            res = Client.recv(1024)
+            res = Client.recv(2048)
             if not res:
                 break
-            res = parse_message(res.decode())
-            self.messages = res[0] + " sent: " + res[1] + "\n" + self.messages
+            res = res.decode()
+
+            res = json.loads(res)
+
+            if 'k' in res.keys():
+                keys[res['username']] = rsa.decrypt(res['k'].encode(), privkey).decode()
+                with open(f"{username}_keys.json", 'w') as key_file:
+                    key_file.write(json.dumps(keys))
+
+            elif 'm' in res.keys():
+                f = Fernet(keys[res['username']].encode('utf-8'))
+                decoded_msg = f.decrypt(res['m']).decode()
+                self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
 
 class Chat(App):
 
@@ -153,6 +206,8 @@ class Chat(App):
         self.inbox = input_box()
         self.receiving_thread = threading.Thread(target=input_box.receive_messages, args=(self.inbox, Client))
         self.receiving_thread.start()
+        time.sleep(2)
+        send_message("hello", input("receiver: "), Client)
 
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Enter the name of the receiver", id="recv")
@@ -168,7 +223,9 @@ class Chat(App):
         if msg.value == "": 
             return  
         inbox.messages = "sent: " + msg.value + "\n" + inbox.messages
-        Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
+
+        send_message(msg.value, recv.value, Client)
+        # Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
         msg.value = ""
 
 app = Chat(Client)

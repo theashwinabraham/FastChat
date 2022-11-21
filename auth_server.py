@@ -17,6 +17,7 @@ ThreadCount = 0
 #connect to psycopg2
 sql_auth_conn = psycopg2.connect(database="authdb", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
 sql_auth_cur = sql_auth_conn.cursor()
+
 #create a table of usernames and passwords
 sql_auth_cur.execute('''
     CREATE TABLE IF NOT EXISTS AUTH_DATA(
@@ -27,6 +28,14 @@ sql_auth_cur.execute('''
 sql_auth_conn.commit()
 
 sql_msg_conn = psycopg2.connect(database="msg_storage", user="ananth", password="ananth", host="127.0.0.1", port =  "5432")
+sql_msg_cur = sql_msg_conn.cursor()
+
+# create a table of public keys
+sql_msg_cur.execute(f"""CREATE TABLE IF NOT EXISTS PUBKEYS(
+            USERNAME TEXT PRIMARY KEY,
+            PUBKEY TEXT
+        )""")
+sql_msg_conn.commit()
 
 #create the server socket
 auth_server = socket.socket()

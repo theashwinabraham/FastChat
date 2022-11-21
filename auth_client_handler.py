@@ -4,6 +4,7 @@ import end2end
 import ports
 import random
 import psycopg2
+import rsa
 
 #IMPORTANT CHANGE:
 # let each thread have its own cursor, cursors are not thread safe 
@@ -31,8 +32,8 @@ class auth_client_handler:
                     print(f"server {auth_data['id']} connected")
                     LoadBalancer.addServer(Client, auth_data['id'])
                     return
-            except Exception:
-                pass
+            except Exception as e:
+                print(e)
             if(auth_data['action'] == 0):
                 if auth_client_handler.validate_user(auth_cursor, auth_data):
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
@@ -42,6 +43,8 @@ class auth_client_handler:
                     Client.send(b"{}")
             elif(auth_data['action'] == 1):
                 if auth_client_handler.addUser(auth_cursor, auth_data, msg_cursor):
+                    auth_connection.commit()
+                    msg_connection.commit()
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
@@ -76,12 +79,15 @@ class auth_client_handler:
 
         msg_cursor.execute(
             f"""CREATE TABLE IF NOT EXISTS {auth_data['username']}(
-            timestamp TEXT PRIMARY KEY,
+            time TEXT PRIMARY KEY,
             message TEXT,
             username TEXT
         );""")
 
+        msg_cursor.execute("INSERT INTO PUBKEYS (USERNAME, PUBKEY) VALUES (%(username)s, %(pubkey)s)", {'username':auth_data['username'], 'pubkey':auth_data['pubkey']})
+
         return True
+    
 class LoadBalancer:
     Servers = []
     @classmethod

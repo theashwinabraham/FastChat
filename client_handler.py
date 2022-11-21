@@ -5,6 +5,7 @@ import json
 import sys
 import time
 import psycopg2
+import rsa
 
 def parse_message(message):
     l =  message.split("\n")
@@ -20,42 +21,73 @@ class client_handler:
     server_id = int(sys.argv[1])
     #stores the otps corresponding to each client
     otp_dict = {}
-    #stores all the messages that are to be dispatched
-    message_dump = []
+    # #stores all the messages that are to be dispatched
+    # message_dump = []
     #stores all the active threads
     active_threads = dict()
-    def __init__(self, name, client, sql_connection) :
+    def __init__(self, name, client) :
         #stores the pending messages to be sent to each client
         self.message_buffer = []
         self.client_name = name
         self.client = client
         self.isActive = True
         #create a new table for the user, if it hasn't been created yet
-        cursor = sql_connection.cursor()
-        cursor.execute(f"""CREATE TABLE IF NOT EXISTS {name}(
-            TIME TIMESTAMP,
-            MESSAGE TEXT, 
-            USERNAME TEXT
-        )""")
+        # cursor = sql_connection.cursor()
+        # cursor.execute(f"""CREATE TABLE IF NOT EXISTS {name}(
+        #     TIME TIMESTAMP,
+        #     MESSAGE TEXT, 
+        #     USERNAME TEXT
+        # )""")
+
     #waits and receives messages from the client
-    def multi_threaded_client(self, connection, sql_msg_conn):
+    def multi_threaded_client(self, connection: socket.socket, sql_msg_conn):
         connection.send(str.encode('Server is working:'))
         if not self.checkClientOtp(connection):
             return
         cursor = sql_msg_conn.cursor()
         while True:
+            # try:
             data = connection.recv(2048)
             if not data:
-                break  
-            L = parse_message(data.decode('utf-8'))
-            L.append(self.client_name)
-            # self.message_dump.append(L)
-            # print(self.message_dump)
+                break
+            print(data)
+            data = json.loads(data.decode())  
 
-            cmd = f"""INSERT INTO {L[0]} (time, message, username) VALUES (to_timestamp({time.time()}), '{L[1]}', '{L[2]}')"""
-            print(cmd)
-            cursor.execute(cmd)
-            sql_msg_conn.commit()
+            if(data['action'] == 0):
+                cursor.execute("SELECT pubkey from pubkeys where username = %(username)s", {"username": data["receiver"]})
+
+                pubkey = cursor.fetchone()
+                if pubkey:
+                    connection.sendall(str(pubkey[0]).encode())
+                else:
+                    connection.sendall("None".encode())
+                    continue
+
+                shared_key = connection.recv(2048)
+                # print(shared_key)
+                print(shared_key)
+                
+                msg = {'k': str(shared_key)}
+                msg = json.dumps(msg)
+                # cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
+                cursor.execute("""INSERT INTO {data['receiver']} (time, message, username) 
+                VALUES (to_timestamp(%(time)s), %(msg)s, %(user)s)""", {"time": time.time(), 'msg':msg, 'user': self.client_name})
+                sql_msg_conn.commit()
+
+            elif(data['action'] == 1):
+
+            # L = parse_message(data.decode('utf-8'))
+            # L.append(self.client_name)
+            # # self.message_dump.append(L)
+            # # print(self.message_dump)
+                msg = {'m':data['message']}
+                msg = json.dumps(msg)
+                cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
+                # print(cmd)
+                cursor.execute(cmd)
+                sql_msg_conn.commit()
+            # except Exception as e:
+            #     print(e)
 
         print("closing the connection")
         self.isActive = False
@@ -68,8 +100,14 @@ class client_handler:
             cursor.execute(f"SELECT time, message, username FROM {self.client_name};")
 
             for msg in cursor.fetchall():
-                print(msg)
-                self.client.sendall(str.encode(msg[2] + "\n" + msg[1]))
+                print("msg", msg[:10])
+
+                json_msg = json.loads(msg[1])
+                json_msg['time'] = msg[0]
+                json_msg['username'] = msg[2]
+                json_msg = json.dumps(json_msg)
+
+                self.client.sendall(str.encode(json_msg))
                 cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
 
@@ -94,13 +132,13 @@ class client_handler:
     def getClientName(cls, Client, sql_msg_conn):
         print("getting client name", flush=True)
         name = bytes.decode(Client.recv(1024))
-        obj = client_handler(name, Client, sql_msg_conn)
+        obj = client_handler(name, Client)
         t = threading.Thread(target = client_handler.multi_threaded_client, args = (obj, Client, sql_msg_conn))
         t.start()
         t1 = threading.Thread(target = client_handler.send_messages, args = (obj, sql_msg_conn))
         t1.start()
         client_handler.active_threads[name] = (obj, t, t1, Client)
-        print(client_handler.active_threads, flush=True)
+        # print(client_handler.active_threads, flush=True)
     @classmethod
     def authServerInterface(cls, auth_host, auth_port):
         communicator = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
