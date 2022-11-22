@@ -148,10 +148,7 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
     Client.sendall(json.dumps(msg_dict).encode('utf-8'))
     return True
 
-def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
-
-    # if "__grp__" + grp_name not in keys.keys():
-    #     return False
+def add_to_grp(grp_name, receiver, Client: socket.socket) -> bool:
 
     grp_fernet_key = ""
     for grp in keys.keys():
@@ -166,11 +163,11 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
 
     user_fernet_key = ""
 
-    if username in keys.keys():
-        user_fernet_key = keys[username]
+    if receiver in keys.keys():
+        user_fernet_key = keys[receiver]
         user_fernet_key = base64.b64decode(user_fernet_key.encode())
     else:
-        request = {"receiver": username, "action": 0}
+        request = {"receiver": receiver, "action": 0}
         Client.sendall(json.dumps(request).encode())
 
         recv_pubkey = Client.recv(2048)
@@ -181,7 +178,7 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
 
         user_fernet_key = Fernet.generate_key()
         b64_fernet_key = base64.b64encode(user_fernet_key)
-        keys[username] = b64_fernet_key.decode()
+        keys[receiver] = b64_fernet_key.decode()
         
         # assert(fernet_key.decode().encode() == fernet_key)
         encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
@@ -195,7 +192,7 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
 
     encrypted_key = user_f.encrypt(grp_fernet_key.encode())
 
-    msg_dict = {"grp_name": grp_name, "username": username, "key": encrypted_key.decode('utf-8'), "action": 4}
+    msg_dict = {"grp_name": grp_name, "username": receiver, "key": encrypted_key.decode('utf-8'), "action": 4}
     msg_dict = json.dumps(msg_dict).encode()
     Client.sendall(msg_dict)
 
@@ -205,6 +202,26 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
         return True
     else:
         return False
+
+# def del_from_grp(grp_name, receiver, Client: socket.socket) -> bool:
+
+#     grp_fernet_key = ""
+#     for grp in keys.keys():
+#         if(grp.rfind("__") == -1): continue
+
+#         if(grp.split("__", 1)[1] == grp_name):
+#             grp_fernet_key = keys[grp]
+#             grp_name =  grp
+#             break
+#     if(grp_fernet_key == ""):
+#         return False
+
+#     if receiver not in keys.keys():
+#         return False
+    
+#     receiver_fernet_key = keys[receiver]
+
+#     return False
 
 def make_grp(grp_name, Client: socket.socket) -> bool:
 
@@ -334,7 +351,8 @@ class Chat(App):
         cmd = self.query_one("#cmd", Input)
 
         if cmd.value[:3] == "del":
-            pass
+            if(recv.value == "" or cmd.value[4:] ==""  ): return
+            del_from_grp(recv.value, cmd.value[4:], Client)
 
         elif cmd.value[:3] == "add":
             if(recv.value == "" or cmd.value[4:] ==""  ): return
