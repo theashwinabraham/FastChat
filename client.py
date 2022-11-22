@@ -76,11 +76,15 @@ def add_to_server(username, password, server):
     global pubkey
     global privkey
     global keys
+
+    # send login id, password, and public key to server
     pubkey, privkey = rsa.newkeys(1024, poolsize=8)
     server = end2end.createComunicator(server, 100)
     auth_data = {"username": username, "password": password, 'action':1, 'pubkey': (pubkey.save_pkcs1(format = "PEM").decode())}
     auth_data = json.dumps(auth_data)
     server.send(bytes(auth_data, encoding='utf-8'))
+
+    # recieve the adress, otp, etc of server that it needs to connect incase of succesfull signup
     data = server.recv()
     data = json.loads(data)
     if(data == {}):
@@ -113,7 +117,9 @@ def authenticate(server):
 def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
 
     if receiver in keys.keys():
-        encoding_key = keys[receiver]
+        global fernet_key
+        fernet_key = keys[receiver]
+        fernet_key = base64.b64decode(fernet_key.encode())
     else:
         request = {"receiver": receiver, "action": 0}
         Client.sendall(json.dumps(request).encode())
@@ -121,16 +127,18 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
         if recv_pubkey.decode() == "None":
             return False
         recv_pubkey = rsa.PublicKey._load_pkcs1_pem(recv_pubkey)
-        encoding_key = Fernet.generate_key()
-        keys[receiver] = encoding_key.decode()
-        # assert(encoding_key.decode().encode() == encoding_key)
-        encoded_key = rsa.encrypt(encoding_key, recv_pubkey)
-        Client.sendall(encoded_key)
+        fernet_key = Fernet.generate_key()
+        b64_fernet_key = base64.b64encode(fernet_key)
+        keys[receiver] = b64_fernet_key.decode()
+        # assert(fernet_key.decode().encode() == fernet_key)
+        encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
+        print("encrypted key: ", encrypted_key)
+        Client.sendall(encrypted_key)
 
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
 
-    f = Fernet(encoding_key)
+    f = Fernet(fernet_key)
     encoded_msg = f.encrypt(msg.encode('utf-8'))
     msg_dict = {"receiver": receiver, "message": encoded_msg.decode('utf-8'), "action": 1}
     Client.sendall(json.dumps(msg_dict).encode('utf-8'))
@@ -153,6 +161,7 @@ if not data:
 host, port, otp = (data['host'], data['port'], data['otp'])
 Client.close()
 #connect to the new server
+time.sleep(5)
 Client = socket.socket()
 try:
     Client.connect((host, port))
@@ -184,17 +193,19 @@ class input_box(Widget):
             if not res:
                 break
             res = res.decode()
-
+            print(res)
             res = json.loads(res)
 
             if 'k' in res.keys():
-                keys[res['username']] = rsa.decrypt(res['k'].encode(), privkey).decode()
+                keys[res['username']] = rsa.decrypt(base64.b64decode(res['k'].encode()), privkey).decode()
+                # print(keys[res['username']])
                 with open(f"{username}_keys.json", 'w') as key_file:
                     key_file.write(json.dumps(keys))
 
             elif 'm' in res.keys():
-                f = Fernet(keys[res['username']].encode('utf-8'))
+                f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
                 decoded_msg = f.decrypt(res['m']).decode()
+                # print(decoded_msg)
                 self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
 
 class Chat(App):
@@ -206,8 +217,7 @@ class Chat(App):
         self.inbox = input_box()
         self.receiving_thread = threading.Thread(target=input_box.receive_messages, args=(self.inbox, Client))
         self.receiving_thread.start()
-        time.sleep(2)
-        send_message("hello", input("receiver: "), Client)
+        # send_message("hello", input("receiver: "), Client)
 
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Enter the name of the receiver", id="recv")

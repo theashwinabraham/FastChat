@@ -57,6 +57,7 @@ class client_handler:
                 cursor.execute("SELECT pubkey from pubkeys where username = %(username)s", {"username": data["receiver"]})
 
                 pubkey = cursor.fetchone()
+                # print(pubkey)
                 if pubkey:
                     connection.sendall(str(pubkey[0]).encode())
                 else:
@@ -67,11 +68,11 @@ class client_handler:
                 # print(shared_key)
                 print(shared_key)
                 
-                msg = {'k': str(shared_key)}
+                msg = {'k': shared_key.decode()}
                 msg = json.dumps(msg)
+                print(data['receiver'])
                 # cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
-                cursor.execute("""INSERT INTO {data['receiver']} (time, message, username) 
-                VALUES (to_timestamp(%(time)s), %(msg)s, %(user)s)""", {"time": time.time(), 'msg':msg, 'user': self.client_name})
+                cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(user)s)".format(), {"time": time.time(), 'msg':msg, 'user': self.client_name})
                 sql_msg_conn.commit()
 
             elif(data['action'] == 1):
@@ -97,16 +98,17 @@ class client_handler:
     def send_messages(self, sql_msg_conn):
         cursor = sql_msg_conn.cursor()
         while self.isActive:
+            # print(self.client_name)
             cursor.execute(f"SELECT time, message, username FROM {self.client_name};")
 
             for msg in cursor.fetchall():
-                print("msg", msg[:10])
+                # print("msg", msg[:10])
 
                 json_msg = json.loads(msg[1])
                 json_msg['time'] = msg[0]
                 json_msg['username'] = msg[2]
                 json_msg = json.dumps(json_msg)
-
+                print(json_msg)
                 self.client.sendall(str.encode(json_msg))
                 cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
