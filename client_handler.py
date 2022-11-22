@@ -40,13 +40,13 @@ class client_handler:
         # )""")
 
     #waits and receives messages from the client
-    def multi_threaded_client(self, connection: socket.socket, sql_msg_conn):
+    def multi_threaded_client(self, connection: socket.socket, sql_msg_conn, sql_grp_conn):
         connection.send(str.encode('Server is working:'))
         if not self.checkClientOtp(connection):
             return
-        cursor = sql_msg_conn.cursor()
+        msg_cursor = sql_msg_conn.cursor()
+        grp_cursor = sql_grp_conn.cursor()
         while True:
-            # try:
             data = connection.recv(2048)
             if not data:
                 break
@@ -54,9 +54,9 @@ class client_handler:
             data = json.loads(data.decode())  
 
             if(data['action'] == 0):
-                cursor.execute("SELECT pubkey from pubkeys where username = %(username)s", {"username": data["receiver"]})
+                msg_cursor.execute("SELECT pubkey from pubkeys where username = %(username)s", {"username": data["receiver"]})
 
-                pubkey = cursor.fetchone()
+                pubkey = msg_cursor.fetchone()
                 # print(pubkey)
                 if pubkey:
                     connection.sendall(str(pubkey[0]).encode())
@@ -72,24 +72,55 @@ class client_handler:
                 msg = json.dumps(msg)
                 print(data['receiver'])
                 # cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
-                cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(user)s)".format(), {"time": time.time(), 'msg':msg, 'user': self.client_name})
+                msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(user)s)".format(), {"time": time.time(), 'msg':msg, 'user': self.client_name})
                 sql_msg_conn.commit()
 
             elif(data['action'] == 1):
 
-            # L = parse_message(data.decode('utf-8'))
-            # L.append(self.client_name)
-            # # self.message_dump.append(L)
-            # # print(self.message_dump)
                 msg = {'m':data['message']}
                 msg = json.dumps(msg)
-                cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
-                # print(cmd)
-                cursor.execute(cmd)
-                sql_msg_conn.commit()
-            # except Exception as e:
-            #     print(e)
+                if(data['receiver'].rsplit("__") == -1):
+                    cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
+                    # print(cmd)
+                    msg_cursor.execute(cmd)
+                    sql_msg_conn.commit()
+                else:
+                    grp_cursor.execute("SELECT USERNAME FROM " + data['receiver'] " WHERE USERNAME != ")
+                    L = grp_cursor.fetchall()
+                    for users in L:
+                        cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
+                        
+                        
+                    pass
 
+
+            elif(data['action'] == 4):
+                # add to grp
+                try:
+                    grp_cursor.execute("INSERT INTO " + data['grp_name']+  " (USERNAME, ROLE) VALUES(%(user)s, '0')", { 'user':data["username"]})
+                    sql_grp_conn.commit()
+
+                    msg_dict = {'km':data['key']}
+                    msg_dict = json.dumps(msg_dict)
+                    msg_cursor.execute("INSERT INTO " + data['username'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)".format(), {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
+                    sql_msg_conn.commit()
+                    connection.send(b"1")
+                except Exception as e:
+                    print(e)
+                    connection.send(b"0")
+                
+            elif(data['action'] == 5):
+                try:
+                    grp_cursor.execute(f"""CREATE TABLE {data['grp_name']}(
+                        USERNAME TEXT PRIMARY KEY,
+                        ROLE BOOLEAN 
+                    )""") #role is 1 if the client is an admin and 0 if not
+                    grp_cursor.execute(f"""INSERT INTO {data['grp_name']} (USERNAME, ROLE) VALUES ('{self.client_name}', '1')""")
+                    sql_grp_conn.commit()
+                    connection.send(b"1")
+                except Exception as e:
+                    print(e)
+                    connection.send(b"0")
         print("closing the connection")
         self.isActive = False
         self.active_threads.pop(self.client_name)
@@ -132,11 +163,11 @@ class client_handler:
     #                 print(e)
     #             cls.message_dump = cls.message_dump[1:]
     @classmethod
-    def getClientName(cls, Client, sql_msg_conn):
+    def getClientName(cls, Client, sql_msg_conn, sql_grp_conn):
         print("getting client name", flush=True)
         name = bytes.decode(Client.recv(1024))
         obj = client_handler(name, Client)
-        t = threading.Thread(target = client_handler.multi_threaded_client, args = (obj, Client, sql_msg_conn))
+        t = threading.Thread(target = client_handler.multi_threaded_client, args = (obj, Client, sql_msg_conn, sql_grp_conn))
         t.start()
         t1 = threading.Thread(target = client_handler.send_messages, args = (obj, sql_msg_conn))
         t1.start()
@@ -173,3 +204,5 @@ class client_handler:
             self.active_threads.pop(self.client_name)
             self.otp_dict.pop(res['username'])
             return False
+    
+    
