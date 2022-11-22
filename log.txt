@@ -1,0 +1,12 @@
+Press 0 for login and 1 for signup: Enter your username: Enter your password: Traceback (most recent call last):
+  File "/home/ashwinabraham/GitHub/FastChat/client.py", line 161, in <module>
+    res = authenticate(Client)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ashwinabraham/GitHub/FastChat/client.py", line 115, in authenticate
+    return (verify_with_server(username, password, server), username, password)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ashwinabraham/GitHub/FastChat/client.py", line 67, in verify_with_server
+    with open(f"{username}_keys.json", 'r') as key_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'ananth_keys.json'
+sys:1: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 47118), raddr=('127.0.0.1', 10000)>
