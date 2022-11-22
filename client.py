@@ -324,7 +324,7 @@ class Chat(App):
         yield Input(placeholder="Enter the name of the receiver", id="recv")
         yield Input(placeholder="Message", id="msg")
         yield self.inbox
-        yield Header(name = "FastChat", show_clock=True)
+        yield Header(name = "FastChat", show_clock=True, )
         yield Footer()
 
     def on_input_submitted(self):
@@ -362,7 +362,6 @@ class Chat(App):
             inbox.messages = "sent to grp " + recv.value + ": " + msg.value + "\n" + inbox.messages
             send_message(msg.value, grp_name, Client)
 
-            return
         elif cmd.value[:2] == "dm":
 
             if msg.value == "" or recv.value == "": 

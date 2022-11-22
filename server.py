@@ -4,8 +4,8 @@ import ports
 import sys
 import psycopg2
 
-if len(sys.argv) == 1:
-    print("Usage: python3 server.py <server_id> <>")
+if len(sys.argv) != 2:
+    print("Usage: python3 server.py <server_id> <port>")
     exit(-1)
 
 from client_handler import *

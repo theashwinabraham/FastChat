@@ -79,19 +79,20 @@ class client_handler:
 
                 msg = {'m':data['message']}
                 msg = json.dumps(msg)
-                if(data['receiver'].rsplit("__") == -1):
+                # print(data['receiver'].rsplit("__"))
+                if(data['receiver'].rfind("__") == -1):
                     cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
                     # print(cmd)
                     msg_cursor.execute(cmd)
                     sql_msg_conn.commit()
                 else:
-                    grp_cursor.execute("SELECT USERNAME FROM " + data['receiver'] " WHERE USERNAME != ")
+                    grp_cursor.execute("SELECT USERNAME FROM " + data['receiver'] + f" WHERE USERNAME != '{self.client_name}'")
                     L = grp_cursor.fetchall()
+                    t = time.time()
                     for users in L:
-                        cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
-                        
-                        
-                    pass
+                        cmd = f"""INSERT INTO {users[0]} (time, message, username) VALUES (to_timestamp({t}), '{msg}', '{data['receiver']}')"""
+                        msg_cursor.execute(cmd)
+                        sql_msg_conn.commit()
 
 
             elif(data['action'] == 4):
