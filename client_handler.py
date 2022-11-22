@@ -112,6 +112,7 @@ class client_handler:
                 self.client.sendall(str.encode(json_msg))
                 cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
+                time.sleep(1)
 
             time.sleep(self.latency)
             # if(self.message_buffer != []):

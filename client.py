@@ -123,16 +123,20 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
     else:
         request = {"receiver": receiver, "action": 0}
         Client.sendall(json.dumps(request).encode())
+
         recv_pubkey = Client.recv(2048)
         if recv_pubkey.decode() == "None":
             return False
+    
         recv_pubkey = rsa.PublicKey._load_pkcs1_pem(recv_pubkey)
+
         fernet_key = Fernet.generate_key()
         b64_fernet_key = base64.b64encode(fernet_key)
         keys[receiver] = b64_fernet_key.decode()
+        
         # assert(fernet_key.decode().encode() == fernet_key)
         encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
-        print("encrypted key: ", encrypted_key)
+        # print("encrypted key: ", encrypted_key)
         Client.sendall(encrypted_key)
 
         with open(f"{username}_keys.json", 'w') as key_file:
@@ -193,7 +197,7 @@ class input_box(Widget):
             if not res:
                 break
             res = res.decode()
-            print(res)
+            # print(res)
             res = json.loads(res)
 
             if 'k' in res.keys():
@@ -232,7 +236,7 @@ class Chat(App):
         recv = self.query_one("#recv", Input)
         if msg.value == "": 
             return  
-        inbox.messages = "sent: " + msg.value + "\n" + inbox.messages
+        inbox.messages = "sent to " + recv.value + ": " + msg.value + "\n" + inbox.messages
 
         send_message(msg.value, recv.value, Client)
         # Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
