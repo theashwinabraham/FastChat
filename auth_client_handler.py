@@ -18,7 +18,7 @@ class auth_client_handler:
     #interact with the user
     @classmethod
     def interact(cls, Client, auth_connection, msg_connection):
-        assert(isinstance(Client, socket.socket))
+        # assert(isinstance(Client, socket.socket))
         # auth_cursor = auth_connection.cursor()
         # msg_cursor = msg_connection.cursor()
         Client = end2end.createComunicator(Client, 100)
@@ -78,7 +78,8 @@ class auth_client_handler:
         try:
             auth_cursor.execute(cmd)
         except Exception as e:
-            print(e)
+            auth_connection.rollback()
+            print(f'Error caught: {e}')
             return False
 
         msg_cursor.execute(
@@ -100,6 +101,7 @@ class LoadBalancer:
         #add code to distribute the client load optimally among servers
         host = ports.server_host
         mindex = cls.loads.index(min(cls.loads))
+        cls.loads[mindex][0] += 1
         otp = random.randint(10000, 99999)
         port = cls.servers[cls.loads[mindex][1]][1]
         print(f'LOAD BALANCER GET: {cls.loads}, {cls.servers}')
@@ -108,5 +110,5 @@ class LoadBalancer:
     @classmethod
     def addServer(cls, server, id, port):
         print(f'LOAD BALANCER ADD: {cls.loads}, {cls.servers}')
-        cls.loads.append((0, id))
+        cls.loads.append([0, id])
         cls.servers[id] = (server, port)

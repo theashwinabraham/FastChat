@@ -17,12 +17,10 @@ class client_handler:
     latency = 1
     #key which is used by the auth_server to recognize this as a server
     server_key = "7ng#$(b4Wpd!f7zM"
-    #stores the id of the server
-    # server_id = int(sys.argv[1])
+
     #stores the otps corresponding to each client
     otp_dict = {}
-    # #stores all the messages that are to be dispatched
-    # message_dump = []
+
     #stores all the active threads
     active_threads = dict()
     
@@ -33,19 +31,12 @@ class client_handler:
         self.client = client
         self.isActive = True
         self.lock = threading.Lock()
-        #create a new table for the user, if it hasn't been created yet
-        # cursor = sql_connection.cursor()
-        # cursor.execute(f"""CREATE TABLE IF NOT EXISTS {name}(
-        #     TIME TIMESTAMP,
-        #     MESSAGE TEXT, 
-        #     USERNAME TEXT
-        # )""")
 
     #waits and receives messages from the client
     def multi_threaded_client(self, connection: socket.socket, sql_msg_conn, sql_grp_conn):
-        print('reached here')
+        # print('reached here')
         connection.sendall(str.encode('Server is working:'))
-        print("REACHED HERE")
+        # print("REACHED HERE")
         if not self.checkClientOtp(connection):
             return
         msg_cursor = sql_msg_conn.cursor()
@@ -238,22 +229,7 @@ class client_handler:
                 time.sleep(1)
 
             time.sleep(self.latency)
-            # if(self.message_buffer != []):
-            #     while len(self.message_buffer):
-            #         print("Message from the display_message thread: ", self.message_buffer[0])
-            #         self.active_threads[self.message_buffer[0][0]][3].sendall(str.encode(self.message_buffer[0][2] + "\n" + self.message_buffer[0][1]))
-            #         self.message_buffer = self.message_buffer[1:]
-    # @classmethod
-    # def distribute_messages(cls):
-    #     while True:
-    #         while len(cls.message_dump):
-    #             try:
-    #                 print(len(cls.message_dump))
-    #                 print(cls.message_dump[0], flush=True)
-    #                 cls.active_threads[cls.message_dump[0][0]][0].message_buffer.append(cls.message_dump[0])
-    #             except Exception as e:
-    #                 print(e)
-    #             cls.message_dump = cls.message_dump[1:]
+
     @classmethod
     def getClientName(cls, Client, sql_msg_conn, sql_grp_conn):
         print("getting client name", flush=True)

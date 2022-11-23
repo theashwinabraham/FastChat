@@ -16,41 +16,8 @@ from textual.reactive import reactive
 
 import traceback
 
-# def message_sender(Client):
-#     prompt = 'Enter the recipient name: '
-#     while True:
-#         reciever = input(prompt)
-#         if(reciever == "NONE"):
-#             break
-#         message = input("Message: ")
-#         Client.sendall(str.encode(wrap_message(reciever, message)))
-#         # res = Client.recv(1024)
-#         # print(res.decode('utf-8'))
-
-# def message_reciever(Client):
-#     prompt = 'Enter the recipient name: '
-#     while True:
-#         res = Client.recv(1024)
-#         if not res:
-#             break
-#         #delete the old prompt and print the received message
-#         # a = sys.stdin.read(1)
-#         # print("a: ", a, flush=True)
-#         print("\r", flush=True, end="")
-#         sys.stdout.write("\033[K")
-#         print("Received: ", res.decode('utf-8'))
-#         print(prompt, end = "", flush=True)
-
-#stores the keys for encryption
+# stores the keys for encryption
 keys = {}
-# communicator_buffer = -1
-
-def wrap_message(reciever, message):
-    return reciever+"\n"+message
-
-def parse_message(message):
-    l =  message.split("\n")
-    return [l[0], l[1]]
 
 def verify_with_server(username, password, server):
     assert(isinstance(server, socket.socket))
@@ -74,7 +41,7 @@ def verify_with_server(username, password, server):
         return data
 
 def add_to_server(username, password, server):
-    assert(isinstance(server, socket.socket))
+    # assert(isinstance(server, socket.socket))
     #generating the rsa keys
     global pubkey
     global privkey
@@ -82,7 +49,7 @@ def add_to_server(username, password, server):
 
     # send login id, password, and public key to server
     pubkey, privkey = rsa.newkeys(1024, poolsize=8)
-    server = end2end.createComunicator(server, 100)
+    # server = end2end.createComunicator(server, 100)
     auth_data = {"username": username, "password": password, 'action':1, 'pubkey': (pubkey.save_pkcs1(format = "PEM").decode())}
     auth_data = json.dumps(auth_data)
     server.send(bytes(auth_data, encoding='utf-8'))
@@ -103,10 +70,11 @@ def authenticate(server):
     assert(isinstance(server, socket.socket))
     choice = input("Press 0 for login and 1 for signup: ")
     if choice == "1":
+        server1 = end2end.createComunicator(server, 100)
         while True:
             username = input("Enter username: ")
             password = input("Enter password: ")
-            res = add_to_server(username, password, server)
+            res = add_to_server(username, password, server1)
             if not res:
                 print("The entered username is not available")
                 continue
@@ -250,7 +218,6 @@ def del_from_grp(grp_name, del_user, Client: socket.socket) -> bool:
     else:
         return False
 
-
 def make_grp(grp_name, Client: socket.socket) -> bool:
 
     # groups in the format username__groupname stored in keys
@@ -297,12 +264,9 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
     else:
         return False
 
-
-
+# establishing connection with auth server
 Client = socket.socket()
 host = '127.0.0.1'
-# port = 9000
-# print('Waiting for connection response')
 try:
     port = ports.auth_server_port
     Client.connect((host, port))
@@ -310,35 +274,40 @@ except socket.error as e:
     print(f'Could not connect to the auth_server: {e}')
     exit(-1)
 
+# authenticating and getting otp for subsequent server connection
 res = authenticate(Client)
 data, username, password = res
 if not data:
     exit(-1)
+host, port, otp = (data['host'], data['port'], data['otp'])
+Client.close() # closing that connection
+time.sleep(1)
 
 log_txt = open(f'log_{username}.txt', 'w')
-host, port, otp = (data['host'], data['port'], data['otp'])
-Client.close()
+
 #connect to the new server
-time.sleep(1)
 Client = socket.socket()
 try:
     Client.connect((host, port))
 except socket.error as e:
     print(f"Can't connect to server: {e}")
     exit(-1)
-print(username, password)
-# print("Please enter your name: ", end="", flush=True)
-# name = input()
-Client.sendall(bytes(username, "utf-8"))
+Client.sendall(bytes(username, "utf-8")) # sending username to server
+
 print(host, port, otp)
+
 Client.recv(1024)
+
 payload = json.dumps({'username':username, 'otp':otp})
+
 Client.send(bytes(payload, "utf-8"))
 res = Client.recv(1024)
 res = res.decode()
 if res == "0":
     print("Connection unsuccessful")
     exit(-1)
+
+
 #User interface
 class input_box(Widget):
     messages = reactive("")
@@ -466,7 +435,7 @@ class Chat(App):
 
                 send_message(msg.value, recv.value, Client)
                 msg.value = ""
-                # Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
+
         except Exception as e:
             log_txt.write(str(e) + "\n--------\n")
             log_txt.write(traceback.format_exc())
