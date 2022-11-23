@@ -41,7 +41,9 @@ class client_handler:
 
     #waits and receives messages from the client
     def multi_threaded_client(self, connection: socket.socket, sql_msg_conn, sql_grp_conn):
+        print('reached here')
         connection.send(str.encode('Server is working:'))
+        print("REACHED HERE")
         if not self.checkClientOtp(connection):
             return
         msg_cursor = sql_msg_conn.cursor()

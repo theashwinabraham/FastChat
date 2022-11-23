@@ -37,6 +37,7 @@ class auth_client_handler:
             if(auth_data['action'] == 0):
                 if auth_client_handler.validate_user(auth_cursor, auth_data):
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
+                    print(T)
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
                 else:
@@ -98,7 +99,7 @@ class LoadBalancer:
         host = ports.server_host
         mindex = cls.loads.index(min(cls.loads))
         otp = random.randint(10000, 99999)
-        port = cls.servers[cls.loads[mindex][1]][0]
+        port = cls.servers[cls.loads[mindex][1]][1]
         # print(cls.Servers)
         cls.servers[cls.loads[mindex][1]][0].send(bytes(json.dumps({'username':username, 'otp':otp}), "utf-8"))
         return {'host': host, 'port':port, 'otp': otp}
