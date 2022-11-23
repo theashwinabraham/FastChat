@@ -13,7 +13,7 @@ from textual.app import App, ComposeResult
 from textual.widget import Widget
 from textual.widgets import Input, Header, Footer
 from textual.reactive import reactive
-
+log_txt = open('log.txt', 'w')
 # def message_sender(Client):
 #     prompt = 'Enter the recipient name: '
 #     while True:
@@ -148,7 +148,10 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
     Client.sendall(json.dumps(msg_dict).encode('utf-8'))
     return True
 
-def add_to_grp(grp_name, receiver, Client: socket.socket) -> bool:
+def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
+
+    # if "__grp__" + grp_name not in keys.keys():
+    #     return False
 
     grp_fernet_key = ""
     for grp in keys.keys():
@@ -163,11 +166,11 @@ def add_to_grp(grp_name, receiver, Client: socket.socket) -> bool:
 
     user_fernet_key = ""
 
-    if receiver in keys.keys():
-        user_fernet_key = keys[receiver]
+    if new_user in keys.keys():
+        user_fernet_key = keys[new_user]
         user_fernet_key = base64.b64decode(user_fernet_key.encode())
     else:
-        request = {"receiver": receiver, "action": 0}
+        request = {"receiver": new_user, "action": 0}
         Client.sendall(json.dumps(request).encode())
 
         recv_pubkey = Client.recv(2048)
@@ -178,7 +181,7 @@ def add_to_grp(grp_name, receiver, Client: socket.socket) -> bool:
 
         user_fernet_key = Fernet.generate_key()
         b64_fernet_key = base64.b64encode(user_fernet_key)
-        keys[receiver] = b64_fernet_key.decode()
+        keys[new_user] = b64_fernet_key.decode()
         
         # assert(fernet_key.decode().encode() == fernet_key)
         encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
@@ -192,7 +195,7 @@ def add_to_grp(grp_name, receiver, Client: socket.socket) -> bool:
 
     encrypted_key = user_f.encrypt(grp_fernet_key.encode())
 
-    msg_dict = {"grp_name": grp_name, "username": receiver, "key": encrypted_key.decode('utf-8'), "action": 4}
+    msg_dict = {"grp_name": grp_name, "username": new_user, "key": encrypted_key.decode('utf-8'), "action": 4}
     msg_dict = json.dumps(msg_dict).encode()
     Client.sendall(msg_dict)
 
@@ -203,25 +206,28 @@ def add_to_grp(grp_name, receiver, Client: socket.socket) -> bool:
     else:
         return False
 
-# def del_from_grp(grp_name, receiver, Client: socket.socket) -> bool:
+def del_from_grp(grp_name, del_user, Client: socket.socket) -> bool:
+    found = False
+    for grp in keys.keys():
+        if(grp.rfind("__") == -1): continue
 
-#     grp_fernet_key = ""
-#     for grp in keys.keys():
-#         if(grp.rfind("__") == -1): continue
+        if(grp.split("__", 1)[1] == grp_name):
+            found = True
+            grp_name =  grp
+            break
+    if not found:
+        return False
 
-#         if(grp.split("__", 1)[1] == grp_name):
-#             grp_fernet_key = keys[grp]
-#             grp_name =  grp
-#             break
-#     if(grp_fernet_key == ""):
-#         return False
-
-#     if receiver not in keys.keys():
-#         return False
+    msg_dict = {"grp_name": grp_name, "username": del_user, "action": 7}
+    msg_dict = json.dumps(msg_dict).encode()
+    Client.sendall(msg_dict)
     
-#     receiver_fernet_key = keys[receiver]
+    res = Client.recv(2048)
+    if (res.decode() == "1"):
+        return True
+    else:
+        return False
 
-#     return False
 
 def make_grp(grp_name, Client: socket.socket) -> bool:
 
@@ -252,18 +258,20 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
 
 Client = socket.socket()
 host = '127.0.0.1'
-port = 9000
+# port = 9000
 # print('Waiting for connection response')
 try:
     port = ports.auth_server_port
     Client.connect((host, port))
 except socket.error as e:
-    print(str(e))
+    print(f'Could not connect to the auth_server: {e}')
+    exit(-1)
 
 res = authenticate(Client)
 data, username, password = res
 if not data:
     exit(-1)
+
 host, port, otp = (data['host'], data['port'], data['otp'])
 Client.close()
 #connect to the new server
@@ -272,11 +280,13 @@ Client = socket.socket()
 try:
     Client.connect((host, port))
 except socket.error as e:
-    print(e)
+    print(f"Can't connect to server: {e}")
+    exit(-1)
 print(username, password)
 # print("Please enter your name: ", end="", flush=True)
 # name = input()
 Client.sendall(bytes(username, "utf-8"))
+print(host, port, otp)
 Client.recv(1024)
 payload = json.dumps({'username':username, 'otp':otp})
 Client.send(bytes(payload, "utf-8"))
@@ -301,29 +311,37 @@ class input_box(Widget):
             res = res.decode()
             # print(res)
             res = json.loads(res)
+            try:
+                if 'k' in res.keys():
+                    keys[res['username']] = rsa.decrypt(base64.b64decode(res['k'].encode()), privkey).decode()
+                    # print(keys[res['username']])
+                    self.messages = "connected to user "+ res["username"] + "\n" + self.messages
+                    with open(f"{username}_keys.json", 'w') as key_file:
+                        key_file.write(json.dumps(keys))
 
-            if 'k' in res.keys():
-                keys[res['username']] = rsa.decrypt(base64.b64decode(res['k'].encode()), privkey).decode()
-                # print(keys[res['username']])
-                self.messages = "connected to user "+ res["username"] + "\n" + self.messages
-                with open(f"{username}_keys.json", 'w') as key_file:
-                    key_file.write(json.dumps(keys))
+                elif 'km' in res.keys():
+                    f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
+                    decoded_key = f.decrypt(res['km']).decode()
+                    keys[res['username']] = decoded_key
+                    self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
+                    # print(decoded_msg)
+                    # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
+                    with open(f"{username}_keys.json", 'w') as key_file:
+                        key_file.write(json.dumps(keys))
 
-            elif 'km' in res.keys():
-                f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
-                decoded_key = f.decrypt(res['km']).decode()
-                keys[res['username']] = decoded_key
-                self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
-                # print(decoded_msg)
-                # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
-                with open(f"{username}_keys.json", 'w') as key_file:
-                    key_file.write(json.dumps(keys))
-
-            elif 'm' in res.keys():
-                f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                decoded_msg = f.decrypt(res['m']).decode()
-                # print(decoded_msg)
-                self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
+                elif 'm' in res.keys():
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    decoded_msg = f.decrypt(res['m']).decode()
+                    # print(decoded_msg)
+                    self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
+                    
+                elif 'gd' in res.keys():
+                    del keys[res['username']]
+                    with open(f"{username}_keys.json", 'w') as key_file:
+                        key_file.write(json.dumps(keys))
+            except Exception as e:
+                log_txt.write(str(e))
+                log_txt.flush()
 
 class Chat(App):
 
@@ -350,45 +368,50 @@ class Chat(App):
         recv = self.query_one("#recv", Input)
         cmd = self.query_one("#cmd", Input)
 
-        if cmd.value[:3] == "del":
-            if(recv.value == "" or cmd.value[4:] ==""  ): return
-            del_from_grp(recv.value, cmd.value[4:], Client)
+        try :
 
-        elif cmd.value[:3] == "add":
-            if(recv.value == "" or cmd.value[4:] ==""  ): return
-            add_to_grp(recv.value, cmd.value[4:], Client)
+            if cmd.value[:3] == "del":
+                if(recv.value == "" or cmd.value[4:] =="" ): return
+                del_from_grp(recv.value, cmd.value[4:], Client)
 
-        elif cmd.value[:6] == "create":
-            if(cmd.value[7:] =="" ): return
-            make_grp(cmd.value[7:], Client)
-            
-        elif cmd.value == "g":
-            if(msg.value == "" or recv.value == ""): return
+            elif cmd.value[:3] == "add":
+                if(recv.value == "" or cmd.value[4:] ==""  ): return
+                add_to_grp(recv.value, cmd.value[4:], Client)
 
-            grp_name = ""
-            for grp in keys.keys():
-                if(grp.rfind("__") == -1): continue
+            elif cmd.value[:6] == "create":
+                if(cmd.value[7:] =="" ): return
+                make_grp(cmd.value[7:], Client)
+                
+            elif cmd.value == "g":
+                if(msg.value == "" or recv.value == ""): return
 
-                if(grp.split("__", 1)[1] == recv.value):
-                    grp_name =  grp
-                    break
-            if(grp_name == ""):
-                recv.value = ""
-                return 
-            
+                grp_name = ""
+                for grp in keys.keys():
+                    if(grp.rfind("__") == -1): continue
 
-            inbox.messages = "sent to grp " + recv.value + ": " + msg.value + "\n" + inbox.messages
-            send_message(msg.value, grp_name, Client)
+                    if(grp.split("__", 1)[1] == recv.value):
+                        grp_name =  grp
+                        break
+                if(grp_name == ""):
+                    recv.value = ""
+                    return 
+                
 
-        elif cmd.value[:2] == "dm":
+                inbox.messages = "sent to grp " + recv.value + ": " + msg.value + "\n" + inbox.messages
+                send_message(msg.value, grp_name, Client)
 
-            if msg.value == "" or recv.value == "": 
-                return  
+            elif cmd.value[:2] == "dm":
 
-            inbox.messages = "sent to " + recv.value + ": " + msg.value + "\n" + inbox.messages
+                if msg.value == "" or recv.value == "": 
+                    return  
 
-            send_message(msg.value, recv.value, Client)
-            # Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
+                inbox.messages = "sent to " + recv.value + ": " + msg.value + "\n" + inbox.messages
+
+                send_message(msg.value, recv.value, Client)
+                # Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
+        except Exception as e:
+            log_txt.write(str(e))
+            log_txt.flush()
         cmd.value = ""
         msg.value = ""
 

@@ -18,7 +18,7 @@ class client_handler:
     #key which is used by the auth_server to recognize this as a server
     server_key = "7ng#$(b4Wpd!f7zM"
     #stores the id of the server
-    server_id = int(sys.argv[1])
+    # server_id = int(sys.argv[1])
     #stores the otps corresponding to each client
     otp_dict = {}
     # #stores all the messages that are to be dispatched
@@ -41,7 +41,9 @@ class client_handler:
 
     #waits and receives messages from the client
     def multi_threaded_client(self, connection: socket.socket, sql_msg_conn, sql_grp_conn):
+        print('reached here')
         connection.send(str.encode('Server is working:'))
+        print("REACHED HERE")
         if not self.checkClientOtp(connection):
             return
         msg_cursor = sql_msg_conn.cursor()
@@ -53,6 +55,7 @@ class client_handler:
             print(data)
             data = json.loads(data.decode())  
 
+            # First time when user tries to send a message to another user (DMs or group)
             if(data['action'] == 0):
                 msg_cursor.execute("SELECT pubkey from pubkeys where username = %(username)s", {"username": data["receiver"]})
 
@@ -75,6 +78,7 @@ class client_handler:
                 msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(user)s)".format(), {"time": time.time(), 'msg':msg, 'user': self.client_name})
                 sql_msg_conn.commit()
 
+            # Normal DMs (not first time)
             elif(data['action'] == 1):
 
                 msg = {'m':data['message']}
@@ -94,10 +98,15 @@ class client_handler:
                         msg_cursor.execute(cmd)
                         sql_msg_conn.commit()
 
-
+        
             elif(data['action'] == 4):
                 # add to grp
                 try:
+                    grp_cursor.execute("SELECT ROLE FROM " + data['grp_name']+ f" WHERE USERNAME = '{self.client_name}' ")
+                    L = grp_cursor.fetchall()
+                    if not L[0][0]:
+                        raise Exception()
+
                     grp_cursor.execute("INSERT INTO " + data['grp_name']+  " (USERNAME, ROLE) VALUES(%(user)s, '0')", { 'user':data["username"]})
                     sql_grp_conn.commit()
 
@@ -111,6 +120,7 @@ class client_handler:
                     connection.send(b"0")
                 
             elif(data['action'] == 5):
+                # create grp
                 try:
                     grp_cursor.execute(f"""CREATE TABLE {data['grp_name']}(
                         USERNAME TEXT PRIMARY KEY,
@@ -118,6 +128,27 @@ class client_handler:
                     )""") #role is 1 if the client is an admin and 0 if not
                     grp_cursor.execute(f"""INSERT INTO {data['grp_name']} (USERNAME, ROLE) VALUES ('{self.client_name}', '1')""")
                     sql_grp_conn.commit()
+                    connection.send(b"1")
+                except Exception as e:
+                    print(e)
+                    connection.send(b"0")
+
+            elif(data['action'] == 7):
+                # delete user from grp
+                try:
+                    grp_cursor.execute("SELECT ROLE FROM " + data['grp_name']+ f" WHERE USERNAME = '{self.client_name}' ")
+                    L = grp_cursor.fetchall()
+                    if (L[0][0] == False):
+                        raise Exception()
+
+                    grp_cursor.execute(f"DELETE FROM {data['grp_name']} WHERE username='{data['username']}';")
+                    sql_grp_conn.commit()
+                    
+                    msg_dict = {'gd': data['grp_name']}
+                    msg_dict = json.dumps(msg_dict).encode()
+                    msg_cursor.execute("INSERT INTO " + data['username'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)".format(), {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
+                    sql_msg_conn.commit()
+
                     connection.send(b"1")
                 except Exception as e:
                     print(e)
@@ -175,10 +206,10 @@ class client_handler:
         client_handler.active_threads[name] = (obj, t, t1, Client)
         # print(client_handler.active_threads, flush=True)
     @classmethod
-    def authServerInterface(cls, auth_host, auth_port):
+    def authServerInterface(cls, auth_host, auth_port, id, port):
         communicator = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         communicator.connect((auth_host, auth_port))
-        serverPayload = {"server_key":cls.server_key, 'id':cls.server_id}
+        serverPayload = {'server_key':cls.server_key, 'id':id, 'port':port}
         serverPayload = json.dumps(serverPayload)
         communicator = end2end.createComunicator(communicator, 100)
         communicator.send(bytes(serverPayload, "utf-8"))

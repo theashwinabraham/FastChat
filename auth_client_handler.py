@@ -30,13 +30,14 @@ class auth_client_handler:
             try:
                 if auth_data['server_key'] == cls.server_key:
                     print(f"server {auth_data['id']} connected")
-                    LoadBalancer.addServer(Client, auth_data['id'])
+                    LoadBalancer.addServer(Client, auth_data['id'], auth_data['port'])
                     return
             except Exception as e:
                 print(e)
             if(auth_data['action'] == 0):
                 if auth_client_handler.validate_user(auth_cursor, auth_data):
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
+                    print(T)
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
                 else:
@@ -46,6 +47,7 @@ class auth_client_handler:
                     auth_connection.commit()
                     msg_connection.commit()
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
+                    print(T)
                     T = json.dumps(T)
                     Client.send(bytes(T , encoding= 'utf-8'))
                 else:
@@ -89,16 +91,19 @@ class auth_client_handler:
         return True
     
 class LoadBalancer:
-    Servers = []
+    loads = []
+    servers = {}
     @classmethod
     def getHostAndPort(cls, username):
         #add code to distribute the client load optimally among servers
         host = ports.server_host
-        port = ports.server_port
+        mindex = cls.loads.index(min(cls.loads))
         otp = random.randint(10000, 99999)
+        port = cls.servers[cls.loads[mindex][1]][1]
         # print(cls.Servers)
-        cls.Servers[0][0].send(bytes(json.dumps({'username':username, 'otp':otp}), "utf-8"))
+        cls.servers[cls.loads[mindex][1]][0].send(bytes(json.dumps({'username':username, 'otp':otp}), "utf-8"))
         return {'host': host, 'port':port, 'otp': otp}
     @classmethod
-    def addServer(cls, Client, id):
-        cls.Servers.append((Client, id))
+    def addServer(cls, server, id, port):
+        cls.loads.append((0, id))
+        cls.servers[id] = (server, port)
