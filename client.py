@@ -148,7 +148,7 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
     Client.sendall(json.dumps(msg_dict).encode('utf-8'))
     return True
 
-def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
+def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
 
     # if "__grp__" + grp_name not in keys.keys():
     #     return False
@@ -166,11 +166,11 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
 
     user_fernet_key = ""
 
-    if username in keys.keys():
-        user_fernet_key = keys[username]
+    if new_user in keys.keys():
+        user_fernet_key = keys[new_user]
         user_fernet_key = base64.b64decode(user_fernet_key.encode())
     else:
-        request = {"receiver": username, "action": 0}
+        request = {"receiver": new_user, "action": 0}
         Client.sendall(json.dumps(request).encode())
 
         recv_pubkey = Client.recv(2048)
@@ -181,7 +181,7 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
 
         user_fernet_key = Fernet.generate_key()
         b64_fernet_key = base64.b64encode(user_fernet_key)
-        keys[username] = b64_fernet_key.decode()
+        keys[new_user] = b64_fernet_key.decode()
         
         # assert(fernet_key.decode().encode() == fernet_key)
         encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
@@ -195,7 +195,7 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
 
     encrypted_key = user_f.encrypt(grp_fernet_key.encode())
 
-    msg_dict = {"grp_name": grp_name, "username": username, "key": encrypted_key.decode('utf-8'), "action": 4}
+    msg_dict = {"grp_name": grp_name, "username": new_user, "key": encrypted_key.decode('utf-8'), "action": 4}
     msg_dict = json.dumps(msg_dict).encode()
     Client.sendall(msg_dict)
 
@@ -205,6 +205,29 @@ def add_to_grp(grp_name, username, Client: socket.socket) -> bool:
         return True
     else:
         return False
+
+def del_from_grp(grp_name, del_user, Client: socket.socket) -> bool:
+    found = False
+    for grp in keys.keys():
+        if(grp.rfind("__") == -1): continue
+
+        if(grp.split("__", 1)[1] == grp_name):
+            found = True
+            grp_name =  grp
+            break
+    if not found:
+        return False
+
+    msg_dict = {"grp_name": grp_name, "username": del_user, "action": 7}
+    msg_dict = json.dumps(msg_dict).encode()
+    Client.sendall(msg_dict)
+    
+    res = Client.recv(2048)
+    if (res.decode() == "1"):
+        return True
+    else:
+        return False
+
 
 def make_grp(grp_name, Client: socket.socket) -> bool:
 
@@ -235,13 +258,14 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
 
 Client = socket.socket()
 host = '127.0.0.1'
-port = 9000
+# port = 9000
 # print('Waiting for connection response')
 try:
     port = ports.auth_server_port
     Client.connect((host, port))
 except socket.error as e:
-    print(str(e))
+    print(f'Could not connect to the auth_server: {e}')
+    exit(-1)
 
 res = authenticate(Client)
 data, username, password = res
@@ -307,6 +331,11 @@ class input_box(Widget):
                 decoded_msg = f.decrypt(res['m']).decode()
                 # print(decoded_msg)
                 self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
+                
+            elif 'gd' in res.keys():
+                del keys[res['username']]
+                with open(f"{username}_keys.json", 'w') as key_file:
+                    key_file.write(json.dumps(keys))
 
 class Chat(App):
 
@@ -334,7 +363,8 @@ class Chat(App):
         cmd = self.query_one("#cmd", Input)
 
         if cmd.value[:3] == "del":
-            pass
+            if(recv.value == "" or cmd.value[4:] =="" ): return
+            del_from_grp(recv.value, cmd.value[4:], Client)
 
         elif cmd.value[:3] == "add":
             if(recv.value == "" or cmd.value[4:] ==""  ): return

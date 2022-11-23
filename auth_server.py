@@ -31,13 +31,13 @@ sql_msg_conn = psycopg2.connect(database="msg_storage", user="ananth", password=
 sql_msg_cur = sql_msg_conn.cursor()
 
 # create a table of public keys
-sql_msg_cur.execute(f"""CREATE TABLE IF NOT EXISTS PUBKEYS(
+sql_msg_cur.execute("""CREATE TABLE IF NOT EXISTS PUBKEYS(
             USERNAME TEXT PRIMARY KEY,
             PUBKEY TEXT
         )""")
 sql_msg_conn.commit()
 
-#create the server socket
+# create the server socket
 auth_server = socket.socket()
 auth_server.bind((host, port))
 auth_server.listen(1)

@@ -4,7 +4,7 @@ import ports
 import sys
 import psycopg2
 
-if len(sys.argv) != 2:
+if len(sys.argv) != 3:
     print("Usage: python3 server.py <server_id> <port>")
     exit(-1)
 
@@ -12,7 +12,8 @@ from client_handler import *
 
 ServerSideSocket = socket.socket()
 host = ports.server_host
-port = ports.server_port
+id = int(sys.argv[1])
+port = int(sys.argv[2])
 ThreadCount = 0
 auth_host = ports.auth_server_host
 auth_port = ports.auth_server_port
@@ -20,11 +21,13 @@ auth_port = ports.auth_server_port
 try:
     ServerSideSocket.bind((host, port))
 except socket.error as e:
-    print(str(e))
-print('Socket is listening..')
+    print(f'Fatal Error: {e}')
+    exit(-1)
+print('Socket is listening...')
 ServerSideSocket.listen(1)
-authInterface = threading.Thread(target=client_handler.authServerInterface, args=(auth_host, auth_port))
-authInterface.start()
+# authInterface = threading.Thread(target=client_handler.authServerInterface, args=(auth_host, auth_port))
+# authInterface.start()
+client_handler.authServerInterface(auth_host, auth_port, id, port)
 
 # message_distributor = threading.Thread(target = client_handler.distribute_messages)
 # message_distributor.start()
