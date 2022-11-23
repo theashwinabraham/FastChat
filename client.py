@@ -43,6 +43,7 @@ import traceback
 
 #stores the keys for encryption
 keys = {}
+# communicator_buffer = -1
 
 def wrap_message(reciever, message):
     return reciever+"\n"+message
@@ -126,7 +127,12 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
         request = {"receiver": receiver, "action": 0}
         Client.sendall(json.dumps(request).encode())
 
-        recv_pubkey = Client.recv(2048)
+        # recv_pubkey = Client.recv(2048)
+        while (input_box.communicator_buffer == -1):
+            time.sleep(0.1)
+        recv_pubkey = input_box.communicator_buffer
+        input_box.communicator_buffer = -1
+        print(recv_pubkey)
         if recv_pubkey.decode() == "None":
             return False
     
@@ -175,7 +181,12 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
         request = {"receiver": new_user, "action": 0}
         Client.sendall(json.dumps(request).encode())
 
-        recv_pubkey = Client.recv(2048)
+        # recv_pubkey = Client.recv(2048)
+        while (input_box.communicator_buffer == -1):
+            time.sleep(0.1)
+        recv_pubkey = input_box.communicator_buffer
+        input_box.communicator_buffer = -1
+
         if recv_pubkey.decode() == "None":
             return False
     
@@ -201,7 +212,11 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
     msg_dict = json.dumps(msg_dict).encode()
     Client.sendall(msg_dict)
 
-    res = Client.recv(2048)
+    # res = Client.recv(2048)
+    while (input_box.communicator_buffer == -1):
+        time.sleep(0.1)
+    res = input_box.communicator_buffer
+    input_box.communicator_buffer = -1
 
     if (res.decode() == "1"):
         return True
@@ -224,7 +239,12 @@ def del_from_grp(grp_name, del_user, Client: socket.socket) -> bool:
     msg_dict = json.dumps(msg_dict).encode()
     Client.sendall(msg_dict)
     
-    res = Client.recv(2048)
+    # res = Client.recv(2048)
+    while (input_box.communicator_buffer == -1):
+        time.sleep(0.1)
+    res = input_box.communicator_buffer
+    input_box.communicator_buffer = -1
+
     if (res.decode() == "1"):
         return True
     else:
@@ -253,7 +273,11 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
     log_txt.write("reached")
     log_txt.flush()
 
-    res = Client.recv(2048)
+    # res = Client.recv(2048)
+    while (input_box.communicator_buffer == -1):
+        time.sleep(0.1)
+    res = input_box.communicator_buffer
+    input_box.communicator_buffer = -1
 
     log_txt.write("reached" + res.decode())
     log_txt.flush()
@@ -319,6 +343,7 @@ if res == "0":
 class input_box(Widget):
     messages = reactive("")
     msg = ""
+    communicator_buffer = -1
     #renders the text on the screen
     def render(self) -> str:
         return self.messages
@@ -360,6 +385,11 @@ class input_box(Widget):
                     del keys[res['username']]
                     with open(f"{username}_keys.json", 'w') as key_file:
                         key_file.write(json.dumps(keys))
+                elif 'c' in res.keys():
+                    input_box.communicator_buffer = res['c'].encode()
+                    log_txt.write(res['c'] + "\n")
+                    log_txt.flush()
+
             except Exception as e:
                 log_txt.write(str(e) + "\n--------\n")
                 log_txt.write(traceback.format_exc())

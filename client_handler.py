@@ -25,12 +25,14 @@ class client_handler:
     # message_dump = []
     #stores all the active threads
     active_threads = dict()
+    
     def __init__(self, name, client) :
         #stores the pending messages to be sent to each client
         self.message_buffer = []
         self.client_name = name
         self.client = client
         self.isActive = True
+        self.lock = threading.Lock()
         #create a new table for the user, if it hasn't been created yet
         # cursor = sql_connection.cursor()
         # cursor.execute(f"""CREATE TABLE IF NOT EXISTS {name}(
@@ -61,11 +63,19 @@ class client_handler:
 
                 pubkey = msg_cursor.fetchone()
                 # print(pubkey)
-                if pubkey:
-                    connection.sendall(str(pubkey[0]).encode())
-                else:
-                    connection.sendall("None".encode())
-                    continue
+                self.lock.acquire()
+                try:
+                    if pubkey:
+                        # connection.sendall(str(pubkey[0]).encode())
+                        connection.sendall(json.dumps({'c':str(pubkey[0])}).encode())
+                    else:
+                        # connection.sendall("None".encode())
+                        connection.sendall(json.dumps({'c':"None"}).encode())
+                        continue
+                except Exception as e:
+                    print(e)
+                finally:
+                    self.lock.release()
 
                 shared_key = connection.recv(2048)
                 # print(shared_key)
@@ -112,13 +122,27 @@ class client_handler:
                     msg_dict = {'km':data['key']}
                     msg_dict = json.dumps(msg_dict)
                     msg_cursor.execute(f"INSERT INTO {data['username']} (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)", {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
-                    connection.sendall(b"1")
-
                     sql_grp_conn.commit()
                     sql_msg_conn.commit()
+
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(b"1")
+                        connection.sendall(json.dumps({'c' : "1"}).encode())                        
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
                 except Exception as e:
                     print(e)
-                    connection.sendall(b"0")
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(b"0")
+                        connection.sendall(json.dumps({'c' : "0"}).encode())
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
                 
             elif(data['action'] == 5):
                 # create grp
@@ -128,11 +152,25 @@ class client_handler:
                         ROLE BOOLEAN 
                     )""") #role is 1 if the client is an admin and 0 if not
                     grp_cursor.execute(f"""INSERT INTO {data['grp_name']} (USERNAME, ROLE) VALUES ('{self.client_name}', '1')""")
-                    connection.sendall(b"1")
                     sql_grp_conn.commit()
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(b"1")
+                        connection.sendall(json.dumps({'c' : "1"}).encode())    
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
                 except Exception as e:
                     print(e)
-                    connection.sendall(b"0")
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(b"0")
+                        connection.sendall(json.dumps({'c' : "0"}).encode())    
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
 
             elif(data['action'] == 7):
                 # delete user from grp
@@ -150,11 +188,25 @@ class client_handler:
                     msg_cursor.execute(f"INSERT INTO {data['username']} (time, message, username) \
                     VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)", {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
                     sql_msg_conn.commit()
-
-                    connection.sendall(b"1")
+                    
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(b"1")
+                        connection.sendall(json.dumps({'c' : "1"}).encode())    
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
                 except Exception as e:
                     print(e)
-                    connection.sendall(b"0")
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(b"0")
+                        connection.sendall(json.dumps({'c' : "0"}).encode())    
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
         print("closing the connection")
         self.isActive = False
         self.active_threads.pop(self.client_name)
@@ -174,7 +226,13 @@ class client_handler:
                 json_msg['username'] = msg[2]
                 json_msg = json.dumps(json_msg)
                 print(json_msg)
-                self.client.sendall(str.encode(json_msg))
+                self.lock.acquire()
+                try:
+                    self.client.sendall(str.encode(json_msg))
+                except Exception as e:
+                    print(e)
+                finally:
+                    self.lock.release()
                 cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
                 time.sleep(1)
