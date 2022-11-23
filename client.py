@@ -342,7 +342,7 @@ class input_box(Widget):
 
                 elif 'km' in res.keys():
                     f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
-                    decoded_key = f.decrypt(res['km'].encode()).decode()
+                    decoded_key = f.decrypt(res['km']).decode()
                     keys[res['username']] = decoded_key
                     self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
                     # print(decoded_msg)
@@ -352,7 +352,7 @@ class input_box(Widget):
 
                 elif 'm' in res.keys():
                     f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                    decoded_msg = f.decrypt(res['m'].encode()).decode()
+                    decoded_msg = f.decrypt(res['m']).decode()
                     # print(decoded_msg)
                     self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
                     
