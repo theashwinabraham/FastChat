@@ -42,7 +42,7 @@ class client_handler:
     #waits and receives messages from the client
     def multi_threaded_client(self, connection: socket.socket, sql_msg_conn, sql_grp_conn):
         print('reached here')
-        connection.send(str.encode('Server is working:'))
+        connection.sendall(str.encode('Server is working:'))
         print("REACHED HERE")
         if not self.checkClientOtp(connection):
             return
@@ -108,16 +108,17 @@ class client_handler:
                         raise Exception()
 
                     grp_cursor.execute("INSERT INTO " + data['grp_name']+  " (USERNAME, ROLE) VALUES(%(user)s, '0')", { 'user':data["username"]})
-                    sql_grp_conn.commit()
 
                     msg_dict = {'km':data['key']}
                     msg_dict = json.dumps(msg_dict)
-                    msg_cursor.execute("INSERT INTO " + data['username'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)".format(), {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
+                    msg_cursor.execute(f"INSERT INTO {data['username']} (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)", {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
+                    connection.sendall(b"1")
+
+                    sql_grp_conn.commit()
                     sql_msg_conn.commit()
-                    connection.send(b"1")
                 except Exception as e:
                     print(e)
-                    connection.send(b"0")
+                    connection.sendall(b"0")
                 
             elif(data['action'] == 5):
                 # create grp
@@ -127,11 +128,11 @@ class client_handler:
                         ROLE BOOLEAN 
                     )""") #role is 1 if the client is an admin and 0 if not
                     grp_cursor.execute(f"""INSERT INTO {data['grp_name']} (USERNAME, ROLE) VALUES ('{self.client_name}', '1')""")
+                    connection.sendall(b"1")
                     sql_grp_conn.commit()
-                    connection.send(b"1")
                 except Exception as e:
                     print(e)
-                    connection.send(b"0")
+                    connection.sendall(b"0")
 
             elif(data['action'] == 7):
                 # delete user from grp
@@ -145,14 +146,15 @@ class client_handler:
                     sql_grp_conn.commit()
                     
                     msg_dict = {'gd': data['grp_name']}
-                    msg_dict = json.dumps(msg_dict).encode()
-                    msg_cursor.execute("INSERT INTO " + data['username'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)".format(), {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
+                    msg_dict = json.dumps(msg_dict)
+                    msg_cursor.execute(f"INSERT INTO {data['username']} (time, message, username) \
+                    VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)", {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
                     sql_msg_conn.commit()
 
-                    connection.send(b"1")
+                    connection.sendall(b"1")
                 except Exception as e:
                     print(e)
-                    connection.send(b"0")
+                    connection.sendall(b"0")
         print("closing the connection")
         self.isActive = False
         self.active_threads.pop(self.client_name)

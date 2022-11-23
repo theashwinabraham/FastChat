@@ -13,7 +13,9 @@ from textual.app import App, ComposeResult
 from textual.widget import Widget
 from textual.widgets import Input, Header, Footer
 from textual.reactive import reactive
-log_txt = open('log.txt', 'w')
+
+import traceback
+
 # def message_sender(Client):
 #     prompt = 'Enter the recipient name: '
 #     while True:
@@ -233,6 +235,9 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
 
     # groups in the format username__groupname stored in keys
 
+    log_txt.write("reached")
+    log_txt.flush()
+
     grp_name = username + "__" + grp_name
     if grp_name in keys.keys():
         return False
@@ -240,14 +245,28 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
     msg_dict = {'action' : 5, 'grp_name': grp_name}
     msg_dict = json.dumps(msg_dict).encode()
 
+    log_txt.write("reached")
+    log_txt.flush()
+
     Client.sendall(msg_dict)
 
+    log_txt.write("reached")
+    log_txt.flush()
+
     res = Client.recv(2048)
+
+    log_txt.write("reached" + res.decode())
+    log_txt.flush()
+
     if (res.decode() == "1"):
+        log_txt.write("reached")
+        log_txt.flush()    
         grp_fernet_key = Fernet.generate_key()
         b64_grp_fernet_key = base64.b64encode(grp_fernet_key)
         keys[grp_name] = b64_grp_fernet_key.decode()
 
+        log_txt.write("reached")
+        log_txt.flush()    
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
         return True
@@ -272,6 +291,7 @@ data, username, password = res
 if not data:
     exit(-1)
 
+log_txt = open(f'log_{username}.txt', 'w')
 host, port, otp = (data['host'], data['port'], data['otp'])
 Client.close()
 #connect to the new server
@@ -309,7 +329,8 @@ class input_box(Widget):
             if not res:
                 break
             res = res.decode()
-            # print(res)
+            log_txt.write(res + "\n")
+            log_txt.flush()
             res = json.loads(res)
             try:
                 if 'k' in res.keys():
@@ -321,7 +342,7 @@ class input_box(Widget):
 
                 elif 'km' in res.keys():
                     f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
-                    decoded_key = f.decrypt(res['km']).decode()
+                    decoded_key = f.decrypt(res['km'].encode()).decode()
                     keys[res['username']] = decoded_key
                     self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
                     # print(decoded_msg)
@@ -331,7 +352,7 @@ class input_box(Widget):
 
                 elif 'm' in res.keys():
                     f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                    decoded_msg = f.decrypt(res['m']).decode()
+                    decoded_msg = f.decrypt(res['m'].encode()).decode()
                     # print(decoded_msg)
                     self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
                     
@@ -340,7 +361,8 @@ class input_box(Widget):
                     with open(f"{username}_keys.json", 'w') as key_file:
                         key_file.write(json.dumps(keys))
             except Exception as e:
-                log_txt.write(str(e))
+                log_txt.write(str(e) + "\n--------\n")
+                log_txt.write(traceback.format_exc())
                 log_txt.flush()
 
 class Chat(App):
@@ -373,14 +395,19 @@ class Chat(App):
             if cmd.value[:3] == "del":
                 if(recv.value == "" or cmd.value[4:] =="" ): return
                 del_from_grp(recv.value, cmd.value[4:], Client)
+                cmd.value = ""
 
             elif cmd.value[:3] == "add":
                 if(recv.value == "" or cmd.value[4:] ==""  ): return
                 add_to_grp(recv.value, cmd.value[4:], Client)
+                cmd.value = ""
 
             elif cmd.value[:6] == "create":
                 if(cmd.value[7:] =="" ): return
+                log_txt.write("reached")
+                log_txt.flush()
                 make_grp(cmd.value[7:], Client)
+                cmd.value = ""
                 
             elif cmd.value == "g":
                 if(msg.value == "" or recv.value == ""): return
@@ -396,9 +423,9 @@ class Chat(App):
                     recv.value = ""
                     return 
                 
-
                 inbox.messages = "sent to grp " + recv.value + ": " + msg.value + "\n" + inbox.messages
                 send_message(msg.value, grp_name, Client)
+                recv.value = ""
 
             elif cmd.value[:2] == "dm":
 
@@ -408,12 +435,19 @@ class Chat(App):
                 inbox.messages = "sent to " + recv.value + ": " + msg.value + "\n" + inbox.messages
 
                 send_message(msg.value, recv.value, Client)
+                msg.value = ""
                 # Client.sendall(str.encode(wrap_message(recv.value, msg.value)))
         except Exception as e:
-            log_txt.write(str(e))
+            log_txt.write(str(e) + "\n--------\n")
+            log_txt.write(traceback.format_exc())
             log_txt.flush()
-        cmd.value = ""
-        msg.value = ""
+        # msg.value = ""
 
 app = Chat(Client)
-app.run()
+time.sleep(1)
+try:
+    app.run()
+except Exception as e:
+    log_txt.write(str(e) + "\n--------\n")
+    log_txt.write(traceback.format_exc())
+    log_txt.flush()
