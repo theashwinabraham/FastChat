@@ -10,6 +10,8 @@ This project aims to build a network of clients interacting with each other with
 
 [Problem Statement](https://docs.google.com/document/d/e/2PACX-1vQglWg-qGoA92pyHpn2IGVjrDX_jIKsN5EjgqCBtUnMUWoYqrsWrumPuW7wjOiqTBgtPDtuxKaJcW9D/pub)
 
+> **_NOTE:_**  This application has been written and tested using python 3.11. Hence, it may not be compatible with older versions.
+
 <h4> Features </h4>
 
 The FastChat application has the following features
