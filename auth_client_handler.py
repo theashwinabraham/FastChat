@@ -19,8 +19,8 @@ class auth_client_handler:
     @classmethod
     def interact(cls, Client, auth_connection, msg_connection):
         assert(isinstance(Client, socket.socket))
-        auth_cursor = auth_connection.cursor()
-        msg_cursor = msg_connection.cursor()
+        # auth_cursor = auth_connection.cursor()
+        # msg_cursor = msg_connection.cursor()
         Client = end2end.createComunicator(Client, 100)
         while True:
             auth_data = Client.recv()
@@ -35,7 +35,7 @@ class auth_client_handler:
             except Exception as e:
                 print(e)
             if(auth_data['action'] == 0):
-                if auth_client_handler.validate_user(auth_cursor, auth_data):
+                if auth_client_handler.validate_user(auth_connection, auth_data):
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
                     print(T)
                     T = json.dumps(T)
@@ -43,7 +43,7 @@ class auth_client_handler:
                 else:
                     Client.send(b"{}")
             elif(auth_data['action'] == 1):
-                if auth_client_handler.addUser(auth_cursor, auth_data, msg_cursor):
+                if auth_client_handler.addUser(auth_connection, auth_data, msg_connection):
                     auth_connection.commit()
                     msg_connection.commit()
                     T = LoadBalancer.getHostAndPort(auth_data['username'])
@@ -56,7 +56,8 @@ class auth_client_handler:
         msg_connection.commit()
         auth_connection.commit()
     @classmethod
-    def validate_user(cls, cursor, auth_data):
+    def validate_user(cls, auth_connection, auth_data):
+        cursor = auth_connection.cursor()
         cmd = "SELECT * FROM AUTH_DATA WHERE USERNAME = '{usr}'".format(usr = auth_data['username'])
         cursor.execute(cmd)
         data = cursor.fetchall()
@@ -65,16 +66,17 @@ class auth_client_handler:
                 return True
         return False
     @classmethod
-    def addUser(cls, cursor, auth_data, msg_cursor):
+    def addUser(cls, auth_connection, auth_data, msg_connection):
         # assert(isinstance(cursor, psycopg2.cursor))
-
+        auth_cursor = auth_connection.cursor()
+        msg_cursor = msg_connection.cursor()
         if( len(auth_data['username'])==0 or len(auth_data['password'])==0):
             return False
 
         cmd = "INSERT INTO AUTH_DATA (USERNAME, PASSWORD) VALUES ('{}', '{}')".format(auth_data['username'], auth_data['password'])
         print(cmd)
         try:
-            cursor.execute(cmd)
+            auth_cursor.execute(cmd)
         except Exception as e:
             print(e)
             return False
@@ -100,10 +102,11 @@ class LoadBalancer:
         mindex = cls.loads.index(min(cls.loads))
         otp = random.randint(10000, 99999)
         port = cls.servers[cls.loads[mindex][1]][1]
-        # print(cls.Servers)
+        print(f'LOAD BALANCER GET: {cls.loads}, {cls.servers}')
         cls.servers[cls.loads[mindex][1]][0].send(bytes(json.dumps({'username':username, 'otp':otp}), "utf-8"))
         return {'host': host, 'port':port, 'otp': otp}
     @classmethod
     def addServer(cls, server, id, port):
+        print(f'LOAD BALANCER ADD: {cls.loads}, {cls.servers}')
         cls.loads.append((0, id))
         cls.servers[id] = (server, port)
