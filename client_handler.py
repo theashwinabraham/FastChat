@@ -111,7 +111,6 @@ class client_handler:
                         cmd = f"""INSERT INTO {users[0]} (time, message, username) VALUES (to_timestamp({t}), '{msg}', '{data['receiver']}')"""
                         msg_cursor.execute(cmd)
                         sql_msg_conn.commit()
-
         
             elif(data['action'] == 4):
                 # add to grp
@@ -211,6 +210,25 @@ class client_handler:
                         print(e)
                     finally:
                         self.lock.release()
+            elif data['action'] == 8:
+                
+                msg = {'f':data['file_name']}
+                file = Message.recv(connection)
+
+                if(data['receiver'].rfind("__") == -1):
+                    msg = json.dumps(msg)
+                    msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username, file) VALUES (to_timestamp(%s), %s, %s, %s)", (time.time(), msg, self.client_name, file))
+                    sql_msg_conn.commit()
+                else:
+                    msg['sender'] = self.client_name
+                    msg = json.dumps(msg)
+                    grp_cursor.execute("SELECT USERNAME FROM " + data['receiver'] + f" WHERE USERNAME != '{self.client_name}'")
+                    L = grp_cursor.fetchall()
+                    t = time.time()
+                    for users in L:
+                        msg_cursor.execute("INSERT INTO " + users[0] + " (time, message, username, file) VALUES (to_timestamp(%s), %s, %s, %s)", (time.time(), msg, self.client_name, file))
+                        sql_msg_conn.commit()
+                
         print("closing the connection")
         self.isActive = False
         self.active_threads.pop(self.client_name)
@@ -220,28 +238,41 @@ class client_handler:
         cursor = sql_msg_conn.cursor()
         while self.isActive:
             # print(self.client_name)
-            cursor.execute(f"SELECT time, message, username FROM {self.client_name};")
+            cursor.execute(f"SELECT time, message, username, file FROM {self.client_name};")
 
             for msg in cursor.fetchall():
                 # print("msg", msg[:10])
+                if msg[3]:
+                    json_msg = json.loads(msg[1])
+                    json_msg['time'] = msg[0]
+                    json_msg['username'] = msg[2]
+                    json_msg = json.dumps(json_msg)
 
-                json_msg = json.loads(msg[1])
-                json_msg['time'] = msg[0]
-                json_msg['username'] = msg[2]
-                json_msg = json.dumps(json_msg)
-                print(json_msg)
-                self.lock.acquire()
-                try:
-                    # self.client.sendall(str.encode(json_msg))
-                    Message.send(json_msg.encode(), self.client)
-                except Exception as e:
-                    print(e)
-                finally:
-                    self.lock.release()
+                    self.lock.acquire()
+                    try:
+                        Message.send(json_msg.encode(), self.client)
+                        Message.send(bytes(msg[3]), self.client)
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
+                else:
+                    json_msg = json.loads(msg[1])
+                    json_msg['time'] = msg[0]
+                    json_msg['username'] = msg[2]
+                    json_msg = json.dumps(json_msg)
+                    print(json_msg)
+                    self.lock.acquire()
+                    try:
+                        # self.client.sendall(str.encode(json_msg))
+                        Message.send(json_msg.encode(), self.client)
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
                 cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
                 time.sleep(1)
-
             time.sleep(self.latency)
 
     @classmethod

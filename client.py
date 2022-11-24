@@ -9,6 +9,8 @@ from cryptography.fernet import Fernet
 import time
 import base64
 from message import Message
+from os.path import exists
+import os.path
 # imports for the UI
 from textual.app import App, ComposeResult
 from textual.widget import Widget
@@ -127,6 +129,54 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
     # Client.sendall(json.dumps(msg_dict).encode('utf-8'))
     Message.send(json.dumps(msg_dict).encode(), Client)
     return True
+
+def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
+    if not exists(file_name): return False
+    if receiver in keys.keys():
+        global fernet_key
+        fernet_key = keys[receiver]
+        fernet_key = base64.b64decode(fernet_key.encode())
+    else:
+        request = {"receiver": receiver, "action": 0}
+        # Client.sendall(json.dumps(request).encode())
+        Message.send(json.dumps(request).encode(), Client)
+
+        # recv_pubkey = Client.recv(2048)
+        while (input_box.communicator_buffer == -1):
+            time.sleep(0.1)
+        recv_pubkey = input_box.communicator_buffer
+        input_box.communicator_buffer = -1
+        print(recv_pubkey)
+        if recv_pubkey.decode() == "None":
+            return False
+    
+        recv_pubkey = rsa.PublicKey._load_pkcs1_pem(recv_pubkey)
+
+        fernet_key = Fernet.generate_key()
+        b64_fernet_key = base64.b64encode(fernet_key)
+        keys[receiver] = b64_fernet_key.decode()
+        
+        # assert(fernet_key.decode().encode() == fernet_key)
+        encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
+        # print("encrypted key: ", encrypted_key)
+        # Client.sendall(encrypted_key)
+        Message.send(encrypted_key, Client)
+
+        with open(f"{username}_keys.json", 'w') as key_file:
+            key_file.write(json.dumps(keys))
+
+    f = Fernet(fernet_key)
+    encoded_msg = f.encrypt(file_name.encode())
+    msg_dict = {"receiver": receiver, "file_name": encoded_msg.decode(), "action": 8}
+    Message.send(json.dumps(msg_dict).encode(), Client)
+
+    with open(file_name, "rb") as file_obj:
+        file = file_obj.read()
+        encryped_file = f.encrypt(base64.b64encode(file))
+        Message.send(encryped_file, Client)
+
+    return True
+
 
 def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
 
@@ -363,6 +413,7 @@ class input_box(Widget):
                     else:
                         self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
                 elif 'gd' in res.keys():
+                    # delete from group
                     del keys[res['username']]
                     with open(f"{username}_keys.json", 'w') as key_file:
                         key_file.write(json.dumps(keys))
@@ -370,6 +421,21 @@ class input_box(Widget):
                     input_box.communicator_buffer = res['c'].encode()
                     log_txt.write(res['c'] + "\n")
                     log_txt.flush()
+                elif 'f' in res.keys():
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    file_name = f.decrypt(res['f']).decode()
+                    if not exists(username + "_files"): os.makedirs(username + "_files")
+                    with open(username + "_files/" + file_name, "wb") as new_file:
+                        encrypted_file = Message.recv(Client)
+                        decrypted_file = f.decrypt(encrypted_file)
+                        file = base64.b64decode(decrypted_file)
+                        new_file.write(file)
+
+                    if 'sender' in res.keys():
+                        self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name + "\n" + self.messages
+                    else:
+                        self.messages = res["username"] + " sent file: " + file_name + "\n" + self.messages
+                    # self.messages = res["username"] + " sent file : " + file_name + "\n" + self.messages
 
             except Exception as e:
                 log_txt.write(str(e) + "\n--------\n")
@@ -420,7 +486,7 @@ class Chat(App):
                 make_grp(cmd.value[7:], Client)
                 cmd.value = ""
                 
-            elif cmd.value == "g":
+            elif cmd.value[0] == "g":
                 if(msg.value == "" or recv.value == ""): return
 
                 grp_name = ""
@@ -433,20 +499,32 @@ class Chat(App):
                 if(grp_name == ""):
                     recv.value = ""
                     return 
+
+                if cmd.value[2:] == "file":
+                    send_file(msg.value, recv.value, Client)
+                    log_txt.write("sent file\n")
+                    log_txt.flush()
+                else:
+                    send_message(msg.value, recv.value, Client)
                 
                 inbox.messages = "sent to grp " + recv.value + ": " + msg.value + "\n" + inbox.messages
                 send_message(msg.value, grp_name, Client)
                 msg.value = ""
+                cmd.value = "g"
 
             elif cmd.value[:2] == "dm":
 
                 if msg.value == "" or recv.value == "": 
                     return  
 
+                if cmd.value[3:] == "file":
+                    send_file(msg.value, recv.value, Client)
+                else:
+                    send_message(msg.value, recv.value, Client)
+                
                 inbox.messages = "sent to " + recv.value + ": " + msg.value + "\n" + inbox.messages
-
-                send_message(msg.value, recv.value, Client)
                 msg.value = ""
+                cmd.value = "dm"
 
         except Exception as e:
             log_txt.write(str(e) + "\n--------\n")

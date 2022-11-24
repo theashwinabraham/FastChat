@@ -86,7 +86,8 @@ class auth_client_handler:
             f"""CREATE TABLE IF NOT EXISTS {auth_data['username']}(
             time TEXT PRIMARY KEY,
             message TEXT,
-            username TEXT
+            username TEXT,
+            file BYTEA
         );""")
 
         msg_cursor.execute("INSERT INTO PUBKEYS (USERNAME, PUBKEY) VALUES (%(username)s, %(pubkey)s)", {'username':auth_data['username'], 'pubkey':auth_data['pubkey']})
