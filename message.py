@@ -14,7 +14,10 @@ class Message:
         return True
     @classmethod
     def recv(cls, conn: socket.socket) -> bytes:
-        sz = int(conn.recv(cls.PRE_MSG_SIZE))
+        sz = conn.recv(cls.PRE_MSG_SIZE)
+        if not sz:
+            return sz
+        sz = int(sz)
         bytes_recd = 0
         message = b""
         while bytes_recd < sz:

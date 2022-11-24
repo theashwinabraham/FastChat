@@ -177,7 +177,6 @@ def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
 
     return True
 
-
 def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
 
     # if "__grp__" + grp_name not in keys.keys():
@@ -501,14 +500,13 @@ class Chat(App):
                     return 
 
                 if cmd.value[2:] == "file":
-                    send_file(msg.value, recv.value, Client)
+                    send_file(msg.value, grp_name, Client)
                     log_txt.write("sent file\n")
                     log_txt.flush()
                 else:
-                    send_message(msg.value, recv.value, Client)
+                    send_message(msg.value, grp_name, Client)
                 
                 inbox.messages = "sent to grp " + recv.value + ": " + msg.value + "\n" + inbox.messages
-                send_message(msg.value, grp_name, Client)
                 msg.value = ""
                 cmd.value = "g"
 

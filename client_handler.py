@@ -211,7 +211,7 @@ class client_handler:
                     finally:
                         self.lock.release()
             elif data['action'] == 8:
-                
+                print("recieved file")
                 msg = {'f':data['file_name']}
                 file = Message.recv(connection)
 
@@ -226,7 +226,7 @@ class client_handler:
                     L = grp_cursor.fetchall()
                     t = time.time()
                     for users in L:
-                        msg_cursor.execute("INSERT INTO " + users[0] + " (time, message, username, file) VALUES (to_timestamp(%s), %s, %s, %s)", (time.time(), msg, self.client_name, file))
+                        msg_cursor.execute("INSERT INTO " + users[0] + " (time, message, username, file) VALUES (to_timestamp(%s), %s, %s, %s)", (time.time(), msg, data['receiver'], file))
                         sql_msg_conn.commit()
                 
         print("closing the connection")
@@ -241,7 +241,7 @@ class client_handler:
             cursor.execute(f"SELECT time, message, username, file FROM {self.client_name};")
 
             for msg in cursor.fetchall():
-                # print("msg", msg[:10])
+                print(msg)
                 if msg[3]:
                     json_msg = json.loads(msg[1])
                     json_msg['time'] = msg[0]
