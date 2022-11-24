@@ -1,6 +1,6 @@
 import socket
 import threading
-import psycopg2
+# import psycopg2
 import json 
 import end2end
 import ports
@@ -11,6 +11,7 @@ import base64
 from message import Message
 from os.path import exists
 import os.path
+import sys
 # imports for the UI
 from textual.app import App, ComposeResult
 from textual.widget import Widget
@@ -532,11 +533,170 @@ class Chat(App):
             log_txt.flush()
         # msg.value = ""
 
-app = Chat(Client)
+# app = Chat(Client)
 time.sleep(1)
-try:
-    app.run()
-except Exception as e:
-    log_txt.write(str(e) + "\n--------\n")
-    log_txt.write(traceback.format_exc())
-    log_txt.flush()
+
+#----------------------------------------------Command line input handler--------------------------------------#
+
+def input_handler(cmd:str, recv:str, msg:str):
+    try :
+
+        if cmd[:3] == "del":
+            if(recv == "" or cmd[4:] =="" ): return
+            del_from_grp(recv, cmd[4:], Client)
+
+        elif cmd[:3] == "add":
+            if(recv == "" or cmd[4:] ==""  ): return
+            add_to_grp(recv, cmd[4:], Client)
+
+        elif cmd[:6] == "create":
+            if(cmd[7:] =="" ): return
+            log_txt.write("reached")
+            log_txt.flush()
+            make_grp(cmd[7:], Client)
+            
+        elif cmd[0] == "g":
+            if(msg == "" or recv == ""): return
+
+            grp_name = ""
+            for grp in keys.keys():
+                if(grp.rfind("__") == -1): continue
+
+                if(grp.split("__", 1)[1] == recv):
+                    grp_name =  grp
+                    break
+            if(grp_name == ""):
+                recv = ""
+                return 
+
+            if cmd[2:] == "file":
+                send_file(msg, recv, Client)
+                log_txt.write("sent file\n")
+                log_txt.flush()
+            else:
+                send_message(msg, recv, Client)
+            
+            # inbox.messages = "sent to grp " + recv + ": " + msg + "\n" + inbox.messages
+            print("sent to grp " + recv + ": " + msg )
+            send_message(msg, grp_name, Client)
+            msg = ""
+            cmd = "g"
+
+        elif cmd[:2] == "dm":
+
+            if msg == "" or recv == "": 
+                return  
+
+            if cmd[3:] == "file":
+                send_file(msg, recv, Client)
+            else:
+                send_message(msg, recv, Client)
+            
+            # inbox.messages = "sent to " + recv + ": " + msg + "\n" + inbox.messages
+            print("sent to " + recv + ": " + msg)
+
+    except Exception as e:
+        log_txt.write(str(e) + "\n--------\n")
+        log_txt.write(traceback.format_exc())
+        log_txt.flush()
+
+running = True
+def receive_messages(Client: socket.socket) -> None:
+    while running:
+        # res = Client.recv(2048)
+        res = Message.recv(Client)
+        if not res:
+            break
+        res = res.decode()
+        log_txt.write(res + "\n")
+        log_txt.flush()
+        res = json.loads(res)
+        try:
+            if 'k' in res.keys():
+                keys[res['username']] = rsa.decrypt(base64.b64decode(res['k'].encode()), privkey).decode()
+                # print(keys[res['username']])
+                # self.messages = "connected to user "+ res["username"] + "\n" + self.messages
+                print("connected to user "+ res["username"])
+                with open(f"{username}_keys.json", 'w') as key_file:
+                    key_file.write(json.dumps(keys))
+
+            elif 'km' in res.keys():
+                f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
+                decoded_key = f.decrypt(res['km']).decode()
+                keys[res['username']] = decoded_key
+                # self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
+                print("added to group "+ res["username"].split('__')[1])
+                # print(decoded_msg)
+                # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
+                with open(f"{username}_keys.json", 'w') as key_file:
+                    key_file.write(json.dumps(keys))
+
+            elif 'm' in res.keys():
+                f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                decoded_msg = f.decrypt(res['m']).decode()
+                # print(decoded_msg)
+                if 'sender' in res.keys():
+                    # self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg + "\n" + self.messages
+                    print(res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg)
+                else:
+                    # self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
+                    print(res["username"] + " sent: " + decoded_msg)
+            elif 'gd' in res.keys():
+                # delete from group
+                del keys[res['username']]
+                print("removed from group " + res['username'])
+                with open(f"{username}_keys.json", 'w') as key_file:
+                    key_file.write(json.dumps(keys))
+            elif 'c' in res.keys():
+                input_box.communicator_buffer = res['c'].encode()
+                log_txt.write(res['c'] + "\n")
+                log_txt.flush()
+            elif 'f' in res.keys():
+                f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                file_name = f.decrypt(res['f']).decode()
+                if not exists(username + "_files"): os.makedirs(username + "_files")
+                with open(username + "_files/" + file_name, "wb") as new_file:
+                    encrypted_file = Message.recv(Client)
+                    decrypted_file = f.decrypt(encrypted_file)
+                    file = base64.b64decode(decrypted_file)
+                    new_file.write(file)
+
+                if 'sender' in res.keys():
+                    # self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name + "\n" + self.messages
+                    print(res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name)
+                else:
+                    # self.messages = res["username"] + " sent file: " + file_name + "\n" + self.messages
+                    print(res["username"] + " sent file: " + file_name)
+
+        except Exception as e:
+            log_txt.write(str(e) + "\n--------\n")
+            log_txt.write(traceback.format_exc())
+            log_txt.flush()
+
+
+
+#--------------------------------------------------------------------------------------------------------------#
+
+if len(sys.argv) > 1 and sys.argv[1] == "--cmd":
+    receiving_thread = threading.Thread(target=receive_messages, args=(Client, ))
+    receiving_thread.start()
+    instruction = ""
+    while True:
+        instruction = input("command: ")
+        if instruction == "exit":
+            break
+        instruction = instruction.split(',')
+        instruction = [i.strip() for i in instruction]
+        cmd, recv, msg = instruction[0], instruction[1], instruction[2]
+        input_handler(cmd, recv, msg)
+    running = False
+    input_handler("dm", username, "closing the receiving thread")
+    Client.close()
+else:
+    app = Chat(Client)
+    try:
+        app.run()
+    except Exception as e:
+        log_txt.write(str(e) + "\n--------\n")
+        log_txt.write(traceback.format_exc())
+        log_txt.flush()
