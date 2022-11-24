@@ -394,12 +394,12 @@ class Chat(App):
             if cmd.value[:3] == "del":
                 if(recv.value == "" or cmd.value[4:] =="" ): return
                 del_from_grp(recv.value, cmd.value[4:], Client)
-                cmd.value = ""
+                cmd.value = "g"
 
             elif cmd.value[:3] == "add":
                 if(recv.value == "" or cmd.value[4:] ==""  ): return
                 add_to_grp(recv.value, cmd.value[4:], Client)
-                cmd.value = ""
+                cmd.value = "g"
 
             elif cmd.value[:6] == "create":
                 if(cmd.value[7:] =="" ): return
@@ -424,7 +424,7 @@ class Chat(App):
                 
                 inbox.messages = "sent to grp " + recv.value + ": " + msg.value + "\n" + inbox.messages
                 send_message(msg.value, grp_name, Client)
-                recv.value = ""
+                msg.value = ""
 
             elif cmd.value[:2] == "dm":
 
