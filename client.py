@@ -568,15 +568,15 @@ def input_handler(cmd:str, recv:str, msg:str):
                 return 
 
             if cmd[2:] == "file":
-                send_file(msg, recv, Client)
+                send_file(msg, grp_name, Client)
                 log_txt.write("sent file\n")
                 log_txt.flush()
             else:
-                send_message(msg, recv, Client)
+                send_message(msg, grp_name, Client)
             
             # inbox.messages = "sent to grp " + recv + ": " + msg + "\n" + inbox.messages
             print("sent to grp " + recv + ": " + msg )
-            send_message(msg, grp_name, Client)
+            # send_message(msg, grp_name, Client)
             msg = ""
             cmd = "g"
 
@@ -598,9 +598,8 @@ def input_handler(cmd:str, recv:str, msg:str):
         log_txt.write(traceback.format_exc())
         log_txt.flush()
 
-running = True
 def receive_messages(Client: socket.socket) -> None:
-    while running:
+    while True:
         # res = Client.recv(2048)
         res = Message.recv(Client)
         if not res:
@@ -683,13 +682,13 @@ if len(sys.argv) > 1 and sys.argv[1] == "--cmd":
         instruction = input("command: ")
         if instruction == "exit":
             break
-        instruction = instruction.split(',')
+        instruction = instruction.split(',') + ["", ""]
         instruction = [i.strip() for i in instruction]
         cmd, recv, msg = instruction[0], instruction[1], instruction[2]
         input_handler(cmd, recv, msg)
-    running = False
-    input_handler("dm", username, "closing the receiving thread")
+    Client.shutdown(socket.SHUT_RDWR)
     Client.close()
+    log_txt.close()
 else:
     app = Chat(Client)
     try:
