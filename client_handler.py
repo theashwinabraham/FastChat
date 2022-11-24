@@ -6,6 +6,7 @@ import sys
 import time
 import psycopg2
 import rsa
+from message import Message
 
 def parse_message(message):
     l =  message.split("\n")
@@ -42,7 +43,8 @@ class client_handler:
         msg_cursor = sql_msg_conn.cursor()
         grp_cursor = sql_grp_conn.cursor()
         while True:
-            data = connection.recv(2048)
+            # data = connection.recv(2048)
+            data = Message.recv(connection)
             if not data:
                 break
             print(data)
@@ -54,21 +56,29 @@ class client_handler:
 
                 pubkey = msg_cursor.fetchone()
                 # print(pubkey)
-                self.lock.acquire()
-                try:
-                    if pubkey:
-                        # connection.sendall(str(pubkey[0]).encode())
-                        connection.sendall(json.dumps({'c':str(pubkey[0])}).encode())
-                    else:
-                        # connection.sendall("None".encode())
-                        connection.sendall(json.dumps({'c':"None"}).encode())
-                        continue
-                except Exception as e:
-                    print(e)
-                finally:
-                    self.lock.release()
 
-                shared_key = connection.recv(2048)
+                if pubkey:
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(json.dumps({'c':str(pubkey[0])}).encode())
+                        Message.send(json.dumps({'c':str(pubkey[0])}).encode(), connection)
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
+                else:
+                    self.lock.acquire()
+                    try:
+                        # connection.sendall(json.dumps({'c':"None"}).encode())
+                        Message.send(json.dumps({'c':"None"}).encode(), connection)
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        self.lock.release()
+                    continue
+
+                # shared_key = connection.recv(2048)
+                shared_key = Message.recv(connection)
                 # print(shared_key)
                 print(shared_key)
                 
@@ -83,14 +93,17 @@ class client_handler:
             elif(data['action'] == 1):
 
                 msg = {'m':data['message']}
-                msg = json.dumps(msg)
+                # msg = json.dumps(msg)
                 # print(data['receiver'].rsplit("__"))
                 if(data['receiver'].rfind("__") == -1):
+                    msg = json.dumps(msg)
                     cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
                     # print(cmd)
                     msg_cursor.execute(cmd)
                     sql_msg_conn.commit()
                 else:
+                    msg['sender'] = self.client_name
+                    msg = json.dumps(msg)
                     grp_cursor.execute("SELECT USERNAME FROM " + data['receiver'] + f" WHERE USERNAME != '{self.client_name}'")
                     L = grp_cursor.fetchall()
                     t = time.time()
@@ -118,8 +131,8 @@ class client_handler:
 
                     self.lock.acquire()
                     try:
-                        # connection.sendall(b"1")
-                        connection.sendall(json.dumps({'c' : "1"}).encode())                        
+                        # connection.sendall(json.dumps({'c' : "1"}).encode()) 
+                        Message.send(json.dumps({'c' : "1"}).encode(), connection)
                     except Exception as e:
                         print(e)
                     finally:
@@ -128,8 +141,8 @@ class client_handler:
                     print(e)
                     self.lock.acquire()
                     try:
-                        # connection.sendall(b"0")
-                        connection.sendall(json.dumps({'c' : "0"}).encode())
+                        # connection.sendall(json.dumps({'c' : "0"}).encode())
+                        Message.send(json.dumps({'c' : "0"}).encode(), connection)
                     except Exception as e:
                         print(e)
                     finally:
@@ -146,8 +159,8 @@ class client_handler:
                     sql_grp_conn.commit()
                     self.lock.acquire()
                     try:
-                        # connection.sendall(b"1")
-                        connection.sendall(json.dumps({'c' : "1"}).encode())    
+                        # connection.sendall(json.dumps({'c' : "1"}).encode())
+                        Message.send(json.dumps({'c' : "1"}).encode(), connection) 
                     except Exception as e:
                         print(e)
                     finally:
@@ -156,8 +169,8 @@ class client_handler:
                     print(e)
                     self.lock.acquire()
                     try:
-                        # connection.sendall(b"0")
-                        connection.sendall(json.dumps({'c' : "0"}).encode())    
+                        # connection.sendall(json.dumps({'c' : "0"}).encode())
+                        Message.send(json.dumps({'c' : "0"}).encode(), connection) 
                     except Exception as e:
                         print(e)
                     finally:
@@ -182,8 +195,8 @@ class client_handler:
                     
                     self.lock.acquire()
                     try:
-                        # connection.sendall(b"1")
-                        connection.sendall(json.dumps({'c' : "1"}).encode())    
+                        # connection.sendall(json.dumps({'c' : "1"}).encode())
+                        Message.send(json.dumps({'c' : "1"}).encode(), connection)
                     except Exception as e:
                         print(e)
                     finally:
@@ -192,8 +205,8 @@ class client_handler:
                     print(e)
                     self.lock.acquire()
                     try:
-                        # connection.sendall(b"0")
-                        connection.sendall(json.dumps({'c' : "0"}).encode())    
+                        # connection.sendall(json.dumps({'c' : "0"}).encode())
+                        Message.send(json.dumps({'c' : "0"}).encode(), connection)    
                     except Exception as e:
                         print(e)
                     finally:
@@ -219,7 +232,8 @@ class client_handler:
                 print(json_msg)
                 self.lock.acquire()
                 try:
-                    self.client.sendall(str.encode(json_msg))
+                    # self.client.sendall(str.encode(json_msg))
+                    Message.send(json_msg.encode(), self.client)
                 except Exception as e:
                     print(e)
                 finally:

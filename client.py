@@ -8,6 +8,7 @@ import rsa
 from cryptography.fernet import Fernet
 import time
 import base64
+from message import Message
 # imports for the UI
 from textual.app import App, ComposeResult
 from textual.widget import Widget
@@ -93,7 +94,8 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
         fernet_key = base64.b64decode(fernet_key.encode())
     else:
         request = {"receiver": receiver, "action": 0}
-        Client.sendall(json.dumps(request).encode())
+        # Client.sendall(json.dumps(request).encode())
+        Message.send(json.dumps(request).encode(), Client)
 
         # recv_pubkey = Client.recv(2048)
         while (input_box.communicator_buffer == -1):
@@ -113,7 +115,8 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
         # assert(fernet_key.decode().encode() == fernet_key)
         encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
         # print("encrypted key: ", encrypted_key)
-        Client.sendall(encrypted_key)
+        # Client.sendall(encrypted_key)
+        Message.send(encrypted_key, Client)
 
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
@@ -121,7 +124,8 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
     f = Fernet(fernet_key)
     encoded_msg = f.encrypt(msg.encode('utf-8'))
     msg_dict = {"receiver": receiver, "message": encoded_msg.decode('utf-8'), "action": 1}
-    Client.sendall(json.dumps(msg_dict).encode('utf-8'))
+    # Client.sendall(json.dumps(msg_dict).encode('utf-8'))
+    Message.send(json.dumps(msg_dict).encode(), Client)
     return True
 
 def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
@@ -147,7 +151,8 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
         user_fernet_key = base64.b64decode(user_fernet_key.encode())
     else:
         request = {"receiver": new_user, "action": 0}
-        Client.sendall(json.dumps(request).encode())
+        # Client.sendall(json.dumps(request).encode())
+        Message.send(json.dumps(request).encode(), Client)
 
         # recv_pubkey = Client.recv(2048)
         while (input_box.communicator_buffer == -1):
@@ -167,7 +172,8 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
         # assert(fernet_key.decode().encode() == fernet_key)
         encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
         # print("encrypted key: ", encrypted_key)
-        Client.sendall(encrypted_key)
+        # Client.sendall(encrypted_key)
+        Message.send(encrypted_key, Client)
 
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
@@ -178,7 +184,8 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
 
     msg_dict = {"grp_name": grp_name, "username": new_user, "key": encrypted_key.decode('utf-8'), "action": 4}
     msg_dict = json.dumps(msg_dict).encode()
-    Client.sendall(msg_dict)
+    # Client.sendall(msg_dict)
+    Message.send(msg_dict, Client)
 
     # res = Client.recv(2048)
     while (input_box.communicator_buffer == -1):
@@ -205,7 +212,8 @@ def del_from_grp(grp_name, del_user, Client: socket.socket) -> bool:
 
     msg_dict = {"grp_name": grp_name, "username": del_user, "action": 7}
     msg_dict = json.dumps(msg_dict).encode()
-    Client.sendall(msg_dict)
+    # Client.sendall(msg_dict)
+    Message.send(msg_dict, Client)
     
     # res = Client.recv(2048)
     while (input_box.communicator_buffer == -1):
@@ -235,7 +243,8 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
     log_txt.write("reached")
     log_txt.flush()
 
-    Client.sendall(msg_dict)
+    # Client.sendall(msg_dict)
+    Message.send(msg_dict, Client)
 
     log_txt.write("reached")
     log_txt.flush()
@@ -319,7 +328,8 @@ class input_box(Widget):
     #receives messages from the server
     def receive_messages(self, Client: socket.socket) -> None:
         while True:
-            res = Client.recv(2048)
+            # res = Client.recv(2048)
+            res = Message.recv(Client)
             if not res:
                 break
             res = res.decode()
@@ -348,8 +358,10 @@ class input_box(Widget):
                     f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
                     decoded_msg = f.decrypt(res['m']).decode()
                     # print(decoded_msg)
-                    self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
-                    
+                    if 'sender' in res.keys():
+                        self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg + "\n" + self.messages
+                    else:
+                        self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
                 elif 'gd' in res.keys():
                     del keys[res['username']]
                     with open(f"{username}_keys.json", 'w') as key_file:
