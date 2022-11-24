@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import socket
 import threading
 # import psycopg2
@@ -17,11 +19,12 @@ from textual.app import App, ComposeResult
 from textual.widget import Widget
 from textual.widgets import Input, Header, Footer
 from textual.reactive import reactive
-
+# print(sys.version)
 import traceback
 
 # stores the keys for encryption
 keys = {}
+dict_lock = threading.Lock()
 
 def verify_with_server(username, password, server):
     assert(isinstance(server, socket.socket))
@@ -91,6 +94,7 @@ def authenticate(server):
 
 def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
 
+    dict_lock.acquire()
     if receiver in keys.keys():
         global fernet_key
         fernet_key = keys[receiver]
@@ -105,7 +109,7 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
             time.sleep(0.1)
         recv_pubkey = input_box.communicator_buffer
         input_box.communicator_buffer = -1
-        print(recv_pubkey)
+        # print(recv_pubkey)
         if recv_pubkey.decode() == "None":
             return False
     
@@ -123,6 +127,8 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
 
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
+
+    dict_lock.release()
 
     f = Fernet(fernet_key)
     encoded_msg = f.encrypt(msg.encode('utf-8'))
@@ -133,6 +139,7 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
 
 def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
     if not exists(file_name): return False
+    dict_lock.acquire()
     if receiver in keys.keys():
         global fernet_key
         fernet_key = keys[receiver]
@@ -147,7 +154,7 @@ def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
             time.sleep(0.1)
         recv_pubkey = input_box.communicator_buffer
         input_box.communicator_buffer = -1
-        print(recv_pubkey)
+        # print(recv_pubkey)
         if recv_pubkey.decode() == "None":
             return False
     
@@ -165,6 +172,7 @@ def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
 
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
+    dict_lock.release()
 
     f = Fernet(fernet_key)
     encoded_msg = f.encrypt(file_name.encode())
@@ -183,6 +191,7 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
     # if "__grp__" + grp_name not in keys.keys():
     #     return False
 
+
     grp_fernet_key = ""
     for grp in keys.keys():
         if(grp.rfind("__") == -1): continue
@@ -194,8 +203,8 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
     if(grp_fernet_key == ""):
         return False
 
+    dict_lock.acquire()
     user_fernet_key = ""
-
     if new_user in keys.keys():
         user_fernet_key = keys[new_user]
         user_fernet_key = base64.b64decode(user_fernet_key.encode())
@@ -227,6 +236,8 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
 
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
+    dict_lock.release()
+    
     
     user_f = Fernet(user_fernet_key)
 
@@ -280,9 +291,6 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
 
     # groups in the format username__groupname stored in keys
 
-    log_txt.write("reached")
-    log_txt.flush()
-
     grp_name = username + "__" + grp_name
     if grp_name in keys.keys():
         return False
@@ -290,14 +298,8 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
     msg_dict = {'action' : 5, 'grp_name': grp_name}
     msg_dict = json.dumps(msg_dict).encode()
 
-    log_txt.write("reached")
-    log_txt.flush()
-
     # Client.sendall(msg_dict)
     Message.send(msg_dict, Client)
-
-    log_txt.write("reached")
-    log_txt.flush()
 
     # res = Client.recv(2048)
     while (input_box.communicator_buffer == -1):
@@ -305,18 +307,12 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
     res = input_box.communicator_buffer
     input_box.communicator_buffer = -1
 
-    log_txt.write("reached" + res.decode())
-    log_txt.flush()
-
     if (res.decode() == "1"):
-        log_txt.write("reached")
-        log_txt.flush()    
+    
         grp_fernet_key = Fernet.generate_key()
         b64_grp_fernet_key = base64.b64encode(grp_fernet_key)
         keys[grp_name] = b64_grp_fernet_key.decode()
-
-        log_txt.write("reached")
-        log_txt.flush()    
+   
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
         return True
@@ -353,7 +349,7 @@ except socket.error as e:
     exit(-1)
 Client.sendall(bytes(username, "utf-8")) # sending username to server
 
-print(host, port, otp)
+# print(host, port, otp)
 
 Client.recv(1024)
 
@@ -610,27 +606,74 @@ def receive_messages(Client: socket.socket) -> None:
         res = json.loads(res)
         try:
             if 'k' in res.keys():
-                keys[res['username']] = rsa.decrypt(base64.b64decode(res['k'].encode()), privkey).decode()
+                recvd_key = rsa.decrypt(base64.b64decode(res['k'].encode()), privkey).decode()
+                
+                dict_lock.acquire()
+                if res['username'] in keys.keys():
+                    if recvd_key > keys[res['username']]:
+                        keys[res['username'] + "_temp"] = recvd_key
+                    elif recvd_key < keys[res['username']]:
+                        keys[res['username'] + "_temp"] = keys[res['username']]
+                        keys[res['username']] = recvd_key
+                else:
+                    keys[res['username']] = recvd_key
+                with open(f"{username}_keys.json", 'w') as key_file:
+                    key_file.write(json.dumps(keys))
+                dict_lock.release()
+                
                 # print(keys[res['username']])
                 # self.messages = "connected to user "+ res["username"] + "\n" + self.messages
-                print("connected to user "+ res["username"])
-                with open(f"{username}_keys.json", 'w') as key_file:
-                    key_file.write(json.dumps(keys))
+                # print("connected to user "+ res["username"])
 
             elif 'km' in res.keys():
-                f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
-                decoded_key = f.decrypt(res['km']).decode()
+                # f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
+                # decoded_key = f.decrypt(res['km']).decode()
+                decoded_key = ""
+                dict_lock.acquire()
+                if res['username'] + "_temp" in keys.keys():
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    # f2 = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    try:
+                        decoded_key = f.decrypt(res['km']).decode()
+                        del keys[res['username'] + "_temp"]
+                        with open(f"{username}_keys.json", 'w') as key_file:
+                            key_file.write(json.dumps(keys))
+                    except:
+                        f = Fernet(base64.b64decode(keys[res['username'] + "_temp"].encode('utf-8')))
+                        decoded_key = f.decrypt(res['km']).decode()
+                else:
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    decoded_key = f.decrypt(res['km']).decode()
+
                 keys[res['username']] = decoded_key
-                # self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
-                print("added to group "+ res["username"].split('__')[1])
-                # print(decoded_msg)
-                # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
                 with open(f"{username}_keys.json", 'w') as key_file:
                     key_file.write(json.dumps(keys))
+                    
+                dict_lock.release()
+                # self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
+                # print("added to group "+ res["username"].split('__')[1])
+                # print(decoded_msg)
+                # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
 
             elif 'm' in res.keys():
-                f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                decoded_msg = f.decrypt(res['m']).decode()
+                decoded_msg = ""
+                dict_lock.acquire()
+                if res['username'] + "_temp" in keys.keys():
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    # f2 = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    try:
+                        decoded_msg = f.decrypt(res['m']).decode()
+                        del keys[res['username'] + "_temp"]
+                        with open(f"{username}_keys.json", 'w') as key_file:
+                            key_file.write(json.dumps(keys))
+                    except:
+                        f = Fernet(base64.b64decode(keys[res['username'] + "_temp"].encode('utf-8')))
+                        decoded_msg = f.decrypt(res['m']).decode()
+                else:
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    decoded_msg = f.decrypt(res['m']).decode()
+                dict_lock.release()
+
                 # print(decoded_msg)
                 if 'sender' in res.keys():
                     # self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg + "\n" + self.messages
@@ -649,8 +692,26 @@ def receive_messages(Client: socket.socket) -> None:
                 log_txt.write(res['c'] + "\n")
                 log_txt.flush()
             elif 'f' in res.keys():
-                f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                file_name = f.decrypt(res['f']).decode()
+                # f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                dict_lock.acquire()
+                f = None
+                file_name = "thisShouldNotBeTheName"
+                if res['username'] + "_temp" in keys.keys():
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    # f2 = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    try:
+                        file_name = f.decrypt(res['f']).decode()
+                        del keys[res['username'] + "_temp"]
+                        with open(f"{username}_keys.json", 'w') as key_file:
+                            key_file.write(json.dumps(keys))
+                    except:
+                        f = Fernet(base64.b64decode(keys[res['username'] + "_temp"].encode('utf-8')))
+                        file_name = f.decrypt(res['f']).decode()
+                else:
+                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                    file_name = f.decrypt(res['f']).decode()
+                dict_lock.release()
+                # file_name = f.decrypt(res['f']).decode()
                 if not exists(username + "_files"): os.makedirs(username + "_files")
                 with open(username + "_files/" + file_name, "wb") as new_file:
                     encrypted_file = Message.recv(Client)
@@ -679,7 +740,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "--cmd":
     receiving_thread.start()
     instruction = ""
     while True:
-        instruction = input("command: ")
+        instruction = input()
         if instruction == "exit":
             break
         instruction = instruction.split(',') + ["", ""]

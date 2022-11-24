@@ -272,7 +272,7 @@ class client_handler:
                         self.lock.release()
                 cursor.execute(f"DELETE FROM {self.client_name} WHERE time='{msg[0]}';")
                 sql_msg_conn.commit()
-                time.sleep(1)
+                # time.sleep(1)
             time.sleep(self.latency)
 
     @classmethod
