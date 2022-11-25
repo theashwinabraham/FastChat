@@ -10,7 +10,8 @@ class Message:
     #stores the maximum length of the size of the message represented in binary
     PRE_MSG_SIZE = 8
     MAX_PACKET_SZ = 4096   
-    MSG_LATENCY = 0.3 #models the time taken by an actual network to transfer data     
+    MSG_LATENCY = 0.1 #models the time taken by an actual network to transfer data    
+    current_throughput = 0 
     @classmethod
     def send(cls, msg: bytes, conn: socket.socket) -> bool:
         """Sends the message to the server/client along with the message size.
@@ -26,6 +27,7 @@ class Message:
         sz = str(len(msg))
         if(len(sz) > cls.PRE_MSG_SIZE):
             return False
+        cls.current_throughput += int(sz)
         conn.sendall(sz.zfill(cls.PRE_MSG_SIZE).encode())
         conn.sendall(msg)
         return True
@@ -43,6 +45,7 @@ class Message:
         if not sz:
             return sz
         sz = int(sz)
+        cls.current_throughput += sz
         bytes_recd = 0
         message = b""
         while bytes_recd < sz:

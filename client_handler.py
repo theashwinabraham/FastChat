@@ -327,6 +327,8 @@ class client_handler:
         serverPayload = {'server_key':cls.server_key, 'id':id, 'port':port}
         serverPayload = json.dumps(serverPayload)
         communicator = end2end.createComunicator(communicator, 100)
+        t = threading.Thread(target = client_handler.sendLoad, args = (communicator, ))
+        t.start()
         communicator.send(bytes(serverPayload, "utf-8"))
         while(True):
             res = communicator.recv()
@@ -336,6 +338,13 @@ class client_handler:
             assert(isinstance(res, str))
             res = json.loads(res)
             cls.otp_dict[res['username']] = res['otp']
+    @classmethod
+    def sendLoad(cls, communicator: end2end.Communicator):
+        while(True):
+            time.sleep(5)
+            temp, Message.current_throughput = Message.current_throughput, 0
+            communicator.send(str(temp).encode('utf-8'))
+
     def checkClientOtp(self, Client):
         res = Client.recv(1024)
         res = json.loads(res.decode())

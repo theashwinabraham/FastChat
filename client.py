@@ -656,28 +656,28 @@ def input_handler(cmd:str, recv:str, msg:str):
 
         if cmd[:3] == "del":
             if(recv == "" or cmd[4:] =="" ): return
-            t1 = str(time.time_ns())
+            # t1 = str(time.time_ns())
             del_from_grp(recv, cmd[4:], Client)
-            t2 = str(time.time_ns())
-            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2) + "\n")
-            msg_log_txt.flush()
+            # t2 = str(time.time_ns())
+            # msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2) + "\n")
+            # msg_log_txt.flush()
 
         elif cmd[:3] == "add":
             if(recv == "" or cmd[4:] ==""  ): return
-            t1 = str(time.time_ns())
+            # t1 = str(time.time_ns())
             add_to_grp(recv, cmd[4:], Client)
-            t2 = str(time.time_ns())
-            log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2) + "\n")
-            log_txt.flush()
+            # t2 = str(time.time_ns())
+            # log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2) + "\n")
+            # log_txt.flush()
 
         elif cmd[:6] == "create":
             if(cmd[7:] =="" ): return
 
-            t1 = str(time.time_ns())
+            # t1 = str(time.time_ns())
             make_grp(cmd[7:], Client)
-            t2 = str(time.time_ns())
-            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2)+ "\n")
-            msg_log_txt.flush()
+            # t2 = str(time.time_ns())
+            # msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2)+ "\n")
+            # msg_log_txt.flush()
             
         elif cmd[0] == "g":
             if(msg == "" or recv == ""): return
@@ -693,17 +693,17 @@ def input_handler(cmd:str, recv:str, msg:str):
                 recv = ""
                 return 
 
-            t1 = str(time.time_ns())
+            t = str(time.time_ns())
             if cmd[2:] == "file":
                 send_file(msg, grp_name, Client)
                 log_txt.write("sent file\n")
             else:
                 send_message(msg, grp_name, Client)
             
-            t2 = str(time.time_ns())
+            # t2 = str(time.time_ns())
+            # msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t) + "\n")
+            # msg_log_txt.flush()
             log_txt.flush()
-            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2)+ "\n")
-            msg_log_txt.flush()
 
             # inbox.messages = "sent to grp " + recv + ": " + msg + "\n" + inbox.messages
             print("sent to grp " + recv + ": " + msg )
@@ -716,13 +716,13 @@ def input_handler(cmd:str, recv:str, msg:str):
             if msg == "" or recv == "": 
                 return  
 
-            t1 = str(time.time_ns())
+            t = str(time.time_ns())
             if cmd[3:] == "file":
                 send_file(msg, recv, Client)
+                msg_log_txt.write(f"df, {recv}, {msg}, {t}\n")
             else:
                 send_message(msg, recv, Client)
-            t2 = str(time.time_ns())
-            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2)+ "\n")
+                msg_log_txt.write(f"dm, {recv}, {msg}, {t}\n")
             msg_log_txt.flush()
 
             # inbox.messages = "sent to " + recv + ": " + msg + "\n" + inbox.messages
@@ -829,8 +829,8 @@ def receive_messages(Client: socket.socket) -> None:
                     t = str(time.time_ns())
                     dis = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg
                     # print(res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg)
-                    msg_log_txt.write(dis + ", " + str(t) + "\n")
-                    msg_log_txt.flush()
+                    # msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    # msg_log_txt.flush()
                     print(dis)
                 else:
                     # self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
@@ -848,9 +848,9 @@ def receive_messages(Client: socket.socket) -> None:
                 # print("removed from group " + res['username'])
                 dis = "removed from group " + res['username']
                 print(dis)
-                t = str(time.time_ns())
-                msg_log_txt.write(dis + ", " + str(t) + "\n")
-                msg_log_txt.flush()
+                # t = str(time.time_ns())
+                # msg_log_txt.write(dis + ", " + str(t) + "\n")
+                # msg_log_txt.flush()
 
             elif 'c' in res.keys():
                 input_box.communicator_buffer = res['c'].encode()
@@ -889,23 +889,22 @@ def receive_messages(Client: socket.socket) -> None:
                     # print(res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name)
                     dis = res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name
                     print(dis)
-                    t = str(time.time_ns())
-                    msg_log_txt.write(dis + ", " + str(t) + "\n")
-                    msg_log_txt.flush()
+                    # t = str(time.time_ns())
+                    # msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    # msg_log_txt.flush()
                 else:
                     # self.messages = res["username"] + " sent file: " + file_name + "\n" + self.messages
                     # print(res["username"] + " sent file: " + file_name)
                     dis = res["username"] + " sent file: " + file_name
                     print(dis)
                     t = str(time.time_ns())
-                    msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    msg_log_txt.write(f"rf, {res['username']}, {file_name}, {t}\n")
                     msg_log_txt.flush()
 
         except Exception as e:
             log_txt.write(str(e) + "\n--------\n")
             log_txt.write(traceback.format_exc())
             log_txt.flush()
-
 
 
 #--------------------------------------------------------------------------------------------------------------#

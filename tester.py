@@ -4,8 +4,10 @@ import threading
 import os
 from os.path import exists
 
+import random
 
 NUM_CLIENTS = 20
+IMG_FILE = "jv_bokassa.png"
 
 if not exists("log"): os.makedirs("log")
 
@@ -26,20 +28,18 @@ class Client:
         
     def create_process(self)->None:
 
-        for user in Client.users:
-            self.ps.sendline(f'dm, {user}, helloworld1'.encode())
+        self.repetitive_msg()
 
-        sleep(3)
-        for user in Client.users:
-            self.ps.sendline(f'dm, {user}, helloworld2'.encode())
+        time.sleep(3)
 
-        sleep(3)
-        for user in Client.users:
-            self.ps.sendline(f'dm, {user}, helloworld3'.encode())
+        self.repetitive_msg()
 
-        sleep(3)
-        for user in Client.users:
-            self.ps.sendline(f'dm, {user}, helloworld4'.encode())
+        time.sleep(5)
+
+        self.img_msg()
+
+        self.img_msg()
+
         # for user in Client.users:
         #     self.ps.sendline(f'dm, {user}, helloworld'.encode())
             # time.sleep(1)
@@ -49,9 +49,23 @@ class Client:
         #     self.log_file.flush()
         # self.ps.sendline(b'exit')
         # time.sleep(20)
+
+    def repetitive_msg(self):
+        for user in Client.users:
+            self.ps.sendline(f'dm, {user}, helloworld1'.encode())
+            time.sleep(random.randint(0,10)/100.0)
+        
+    def img_msg(self):
+        for user in Client.users:
+            x = random.randint(1, 10)
+            if x == 1:
+                self.ps.sendline(f"dm file, {user}, {IMG_FILE}".encode())
+            else:
+                self.ps.sendline(f'dm, {user}, helloworld1'.encode())
+
     def close(self):
         # time.sleep(2)
-        for i in range(NUM_CLIENTS*8 ):
+        for i in range(NUM_CLIENTS*2* 4 ):
             try:
                 self.log_file.write(self.ps.recvuntil(b"d", 5) + b"d")
                 self.log_file.flush()

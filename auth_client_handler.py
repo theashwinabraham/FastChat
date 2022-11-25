@@ -4,7 +4,9 @@ import end2end
 import ports
 import random
 import psycopg2
-import rsa
+import threading
+from message import Message
+import time
 
 #IMPORTANT CHANGE:
 # let each thread have its own cursor, cursors are not thread safe 
@@ -129,8 +131,9 @@ class LoadBalancer:
     """
     loads = [] #stores the loads on the servers
     servers = {} #stores the servers
+    server_loads = {}
     @classmethod
-    def getHostAndPort(cls, username):
+    def getHostAndPort(cls, username, strategy=2):
         """Returns the host and port of the main server to which the client is to be redirected, based on the load balancing strategy. Also sends an otp to the server as well as the client, which is used for verification when the client connects again.
 
         :param username: username of the client
@@ -138,10 +141,24 @@ class LoadBalancer:
         :return: dictionary containing the host, port and otp
         :rtype: dict
         """
+        if not len(cls.servers.keys()): return False
         #add code to distribute the client load optimally among servers
         host = ports.server_host
-        mindex = cls.loads.index(min(cls.loads))
+        # mindex = cls.loads.index(min(cls.loads))
+        if strategy == 0: # Random
+            mindex = cls.loads.index(random.choice(cls.loads))
+        elif strategy == 1: # Min Load
+            mindex = cls.loads.index(min(cls.loads))
+        elif strategy == 2: #redirect to the server with the least throughput
+            temp = cls.server_loads
+            temp1 = min(temp.values())
+            temp2 = [key for key in temp if temp[key] == temp1]
+            if len(temp2) == 1:
+                mindex = temp2[0]
+            else:
+                mindex = cls.loads.index(min(cls.loads))
         cls.loads[mindex][0] += 1
+            
         otp = random.randint(10000, 99999)
         port = cls.servers[cls.loads[mindex][1]][1]
         print(f'LOAD BALANCER GET: {cls.loads}, {cls.servers}')
@@ -152,12 +169,30 @@ class LoadBalancer:
         """adds the server to the list of loads and servers.
 
         :param server: server connection
-        :type server: socket.socket
+        :type server: end2end.Communicator
         :param id: server id
         :type id: int
         :param port: port number of the server
         :type port: int
         """
         print(f'LOAD BALANCER ADD: {cls.loads}, {cls.servers}')
+        t = threading.Thread(target = LoadBalancer.updateLoad, args = (server, id))
+        t.start()
         cls.loads.append([0, id])
         cls.servers[id] = (server, port)
+        cls.server_loads[id] = 0
+    @classmethod
+    def updateLoad(cls, communicator: end2end.Communicator, id: int):
+        """Gets the loads on the servers
+
+        :param server: connection with the server
+        :type server: end2end.Communicator
+        :param id: id of the server
+        :type id: int
+        """                
+        while True:
+            load = communicator.recv()
+            if not load: break
+            load = int(load.decode('utf-8'))
+            cls.server_loads[id] = load
+            print(cls.server_loads)
