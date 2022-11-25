@@ -129,7 +129,7 @@ class auth_client_handler:
 class LoadBalancer:
     """Class used for load balancing among servers.
     """
-    loads = [] #stores the loads on the servers
+    loads = {} #stores the loads on the servers
     servers = {} #stores the servers
     server_loads = {}
     @classmethod
@@ -146,23 +146,26 @@ class LoadBalancer:
         host = ports.server_host
         # mindex = cls.loads.index(min(cls.loads))
         if strategy == 0: # Random
-            mindex = cls.loads.index(random.choice(cls.loads))
+            m_id = random.choice(cls.loads.keys())
         elif strategy == 1: # Min Load
-            mindex = cls.loads.index(min(cls.loads))
-        elif strategy == 2: #redirect to the server with the least throughput
+            temp = cls.loads
+            temp1 = min(temp.values())
+            m_id = [key for key in temp if temp[key] == temp1][0]
+        if strategy == 2: #redirect to the server with the least throughput
             temp = cls.server_loads
             temp1 = min(temp.values())
             temp2 = [key for key in temp if temp[key] == temp1]
-            if len(temp2) == 1:
-                mindex = temp2[0]
-            else:
-                mindex = cls.loads.index(min(cls.loads))
-        cls.loads[mindex][0] += 1
+
+            m_id = temp2[0]
+            for i in temp2:
+                if cls.loads[i] < cls.loads[m_id]:
+                    m_id = i
+        cls.loads[m_id] += 1
             
         otp = random.randint(10000, 99999)
-        port = cls.servers[cls.loads[mindex][1]][1]
+        port = cls.servers[m_id][1]
         print(f'LOAD BALANCER GET: {cls.loads}, {cls.servers}')
-        cls.servers[cls.loads[mindex][1]][0].send(bytes(json.dumps({'username':username, 'otp':otp}), "utf-8"))
+        cls.servers[m_id][0].send(bytes(json.dumps({'username':username, 'otp':otp}), "utf-8"))
         return {'host': host, 'port':port, 'otp': otp}
     @classmethod
     def addServer(cls, server, id, port):
@@ -178,7 +181,7 @@ class LoadBalancer:
         print(f'LOAD BALANCER ADD: {cls.loads}, {cls.servers}')
         t = threading.Thread(target = LoadBalancer.updateLoad, args = (server, id))
         t.start()
-        cls.loads.append([0, id])
+        cls.loads[id] = 0
         cls.servers[id] = (server, port)
         cls.server_loads[id] = 0
     @classmethod
