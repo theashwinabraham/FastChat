@@ -129,8 +129,9 @@ class LoadBalancer:
     """
     loads = [] #stores the loads on the servers
     servers = {} #stores the servers
+    prev_choice = -1
     @classmethod
-    def getHostAndPort(cls, username):
+    def getHostAndPort(cls, username, strategy=0):
         """Returns the host and port of the main server to which the client is to be redirected, based on the load balancing strategy. Also sends an otp to the server as well as the client, which is used for verification when the client connects again.
 
         :param username: username of the client
@@ -140,7 +141,13 @@ class LoadBalancer:
         """
         #add code to distribute the client load optimally among servers
         host = ports.server_host
-        mindex = cls.loads.index(min(cls.loads))
+        if strategy == 0: # Random
+            mindex = cls.loads.index(random.choice(cls.loads))
+        elif strategy == 1: # Round Robin
+            mindex = (cls.prev_choice + 1) % len(cls.loads)
+            cls.prev_choice = mindex
+        elif strategy == 2: # Min Load
+            mindex = cls.loads.index(min(cls.loads))
         cls.loads[mindex][0] += 1
         otp = random.randint(10000, 99999)
         port = cls.servers[cls.loads[mindex][1]][1]
