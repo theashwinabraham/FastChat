@@ -105,6 +105,7 @@ When the admin adds another client to the group, the Fernet key of the group is 
 Whenever a message is sent on the group by any member of the group, the server forwards this message to all other members of the group using the same method as direct messages are sent.
 
 <h4> Load Balancing Strategies </h4>
+
 - Naive Strategy: We randomly choose a server to assign to a client
 - Minimum Client Load Strategy: We choose the server with the minimum number of clients connected to assign to new clients
 - Minimum Message Load Strategy: We choose the server with the minimum bytes passing through the server per second to assign to new clients
