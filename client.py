@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+"""Implementation of the client side
+"""
+
 import socket
 import threading
 # import psycopg2
@@ -24,9 +27,21 @@ import traceback
 
 # stores the keys for encryption
 keys = {}
+#lock for managing access to the keys dictionary
 dict_lock = threading.Lock()
 
 def verify_with_server(username, password, server):
+    """Verifies the username and password entered by the user during login with the auth_server.
+
+    :param username: username of the client
+    :type username: str
+    :param password: password of the client
+    :type password: str
+    :param server: connection with the auth_server
+    :type server: socket.socket
+    :return: returns false if the authentication fails, returns the details of the main server otherwise
+    :rtype: bool or dict
+    """
     assert(isinstance(server, socket.socket))
     global pubkey
     global privkey
@@ -48,6 +63,17 @@ def verify_with_server(username, password, server):
         return data
 
 def add_to_server(username, password, server):
+    """Sends the username and the password of the new client with the auth_server.
+
+    :param username: username of the client
+    :type username: str
+    :param password: password of the client
+    :type password: str
+    :param server: connection with the auth_server
+    :type server: end2end.Communicator
+    :return: returns false if the username is already taken, returns the details of the main server otherwise
+    :rtype: bool or dict
+    """
     # assert(isinstance(server, socket.socket))
     #generating the rsa keys
     global pubkey
@@ -74,6 +100,13 @@ def add_to_server(username, password, server):
         return data    
 
 def authenticate(server):
+    """Takes the username and password from the user and calls the `add_to_server` and `verify_with_server` depending on whether the client wants to sign up or login.
+
+    :param server: connection with the server
+    :type server: socket.socket
+    :return: dictionary containing the username, password and the dictionary obtained from the auth_server.
+    :rtype: tuple
+    """
     assert(isinstance(server, socket.socket))
     choice = input("Press 0 for login and 1 for signup: ")
     if choice == "1":
@@ -93,7 +126,17 @@ def authenticate(server):
         return (verify_with_server(username, password, server), username, password)
 
 def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
+    """Sends the message to the messaging server (servers except the auth_server).
 
+    :param msg: message to be sent
+    :type msg: str
+    :param receiver: username of the receiver of the message
+    :type receiver: str
+    :param Client: connection with the server
+    :type Client: socket.socket
+    :return: Returns True if the message was successfully sent, false otherwise
+    :rtype: bool
+    """
     if receiver in keys.keys():
         global fernet_key
         fernet_key = keys[receiver]
@@ -141,6 +184,17 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
     return True
 
 def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
+    """Sends a file to the server.
+
+    :param file_name: name of the file to be sent
+    :type file_name: str
+    :param receiver: username of the receiver
+    :type receiver: str
+    :param Client: connection with the server
+    :type Client: socket.socket
+    :return: returns True if the file was sent successfully
+    :rtype: bool
+    """
     if not exists(file_name): return False
 
     if receiver in keys.keys():
@@ -195,10 +249,14 @@ def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
     return True
 
 def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
+    """Adds another participant to a group. Can be done only by the admin of the group.
+
+    :return: Returns True if the person is added, false otherwise.
+    :rtype: bool
+    """
 
     # if "__grp__" + grp_name not in keys.keys():
     #     return False
-
 
     grp_fernet_key = ""
     for grp in keys.keys():
@@ -271,6 +329,11 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
         return False
 
 def del_from_grp(grp_name, del_user, Client: socket.socket) -> bool:
+    """Removes a participant from a group. Can be done only by the admin of the group.
+
+    :return: Returns True if the person is added, false otherwise.
+    :rtype: bool
+    """
     found = False
     for grp in keys.keys():
         if(grp.rfind("__") == -1): continue
@@ -298,8 +361,16 @@ def del_from_grp(grp_name, del_user, Client: socket.socket) -> bool:
     else:
         return False
 
-def make_grp(grp_name, Client: socket.socket) -> bool:
+def make_grp(grp_name: str, Client: socket.socket) -> bool:
+    """Creates a group.
 
+    :param grp_name: name of the group to be created
+    :type grp_name: str
+    :param Client: connection with the server
+    :type Client: socket.socket
+    :return: returns True if the group was created successfully
+    :rtype: bool
+    """
     # groups in the format username__groupname stored in keys
 
     grp_name = username + "__" + grp_name
@@ -378,6 +449,8 @@ if res == "0":
 
 #User interface
 class input_box(Widget):
+    """Widget displaying the messages in the textual interface
+    """
     messages = reactive("")
     msg = ""
     communicator_buffer = -1
@@ -386,6 +459,11 @@ class input_box(Widget):
         return self.messages
     #receives messages from the server
     def receive_messages(self, Client: socket.socket) -> None:
+        """Receives messages from the server and displays them.
+
+        :param Client: connection with the server
+        :type Client: socket.socket
+        """
         while True:
             # res = Client.recv(2048)
             res = Message.recv(Client)
@@ -452,10 +530,16 @@ class input_box(Widget):
                 log_txt.flush()
 
 class Chat(App):
-
+    """Application running the textual interface.
+    """
     BINDINGS = [("q", "quit", "Quit")]
 
     def __init__(self, Client):
+        """Concstructor of the application. Starts a receiving thread.
+
+        :param Client: connection with the server
+        :type Client: socket.socket
+        """
         super().__init__()
         self.inbox = input_box()
         self.receiving_thread = threading.Thread(target=input_box.receive_messages, args=(self.inbox, Client))
@@ -463,6 +547,11 @@ class Chat(App):
         # send_message("hello", input("receiver: "), Client)
 
     def compose(self) -> ComposeResult:
+        """Renders the interface.
+
+        :yield: Widgets to be displayed on the screen.
+        :rtype: Iterator[ComposeResult]
+        """
         yield Input(placeholder="Command", id="cmd")
         yield Input(placeholder="Enter the name of the receiver", id="recv")
         yield Input(placeholder="Message", id="msg")
@@ -471,6 +560,8 @@ class Chat(App):
         yield Footer()
 
     def on_input_submitted(self):
+        """Sends messages/commands to the server based on the input received from the server.
+        """
         inbox = self.query_one(input_box)
         msg = self.query_one("#msg", Input)
         recv = self.query_one("#recv", Input)
@@ -546,6 +637,15 @@ time.sleep(1)
 #----------------------------------------------Command line input handler--------------------------------------#
 
 def input_handler(cmd:str, recv:str, msg:str):
+    """Handles the input given from the command line interface. This interface can be used by passing in the `--cmd` flag in the command line.
+
+    :param cmd: user command.
+    :type cmd: str
+    :param recv: receiver
+    :type recv: str
+    :param msg: message
+    :type msg: str
+    """
     try :
 
         if cmd[:3] == "del":
@@ -608,6 +708,11 @@ def input_handler(cmd:str, recv:str, msg:str):
         log_txt.flush()
 
 def receive_messages(Client: socket.socket) -> None:
+    """Receives and prints messages from the server in the command line interface.
+
+    :param Client: connection with the server.
+    :type Client: socket.socket
+    """
     while True:
         # res = Client.recv(2048)
         res = Message.recv(Client)
@@ -747,7 +852,8 @@ def receive_messages(Client: socket.socket) -> None:
 
 
 #--------------------------------------------------------------------------------------------------------------#
-
+"""Decides which interface to run based on the flag given.
+"""
 if len(sys.argv) > 1 and sys.argv[1] == "--cmd":
     receiving_thread = threading.Thread(target=receive_messages, args=(Client, ))
     receiving_thread.start()

@@ -29,6 +29,7 @@ class Client:
 
         for user in Client.users:
             self.ps.sendline(f'dm, {user}, helloworld'.encode())
+            time.sleep(1)
 
         # for i in range(NUM_CLIENTS*2 ):
         #     self.log_file.write(self.ps.recvuntil(b"\n", 1) + b"\n")

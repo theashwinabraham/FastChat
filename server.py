@@ -4,6 +4,13 @@ import ports
 import sys
 import psycopg2
 
+"""Implements the messaging servers. 
+
+    The server first connects with the auth_server. Then it connects with the msg_storage and the groupdb database.
+
+    Then it waits for connections redirectied from the auth_server and creates separate threads for each connection. 
+"""
+
 if len(sys.argv) != 3:
     print("Usage: python3 server.py <server_id> <port>")
     exit(-1)
@@ -27,9 +34,9 @@ print('Socket is listening...')
 ServerSideSocket.listen(1)
 authInterface = threading.Thread(target=client_handler.authServerInterface, args=(auth_host, auth_port, id, port))
 authInterface.start()
-print('AB')
+# print('AB')
 # client_handler.authServerInterface(auth_host, auth_port, id, port)
-print('CD')
+# print('CD')
 # message_distributor = threading.Thread(target = client_handler.distribute_messages)
 # message_distributor.start()
 
@@ -41,9 +48,9 @@ try:
     while True:
         #we cannot have a recv statement inside this loop
         #else the server stops accepting connections till the previous connection receives data 
-        print('HELLO')
+        # print('HELLO')
         Client, address = ServerSideSocket.accept()
-        print('Hello')
+        # print('Hello')
         t = threading.Thread(target = client_handler.getClientName, args = (Client, sql_msg_conn, sql_grp_conn))
         t.start()
         # name = bytes.decode(Client.recv(1024))

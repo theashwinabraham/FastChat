@@ -3,6 +3,21 @@
 # If credentials don't match, then reject the user
 # If they match, forward to other servers (load balancing)
 
+""""Creates and runs the server responsible for authentication and load balancing.
+
+The host and port on which this server runs can be configured in `ports.py`.
+
+All clients connect to this server at the beginning. After the clients signup or successfully login, this server redirects the clients to the one of the main servers, which is decided by the load balancer. 
+
+The usernames and passwords are stored in the authdb database. This database can be accessed only by this server. Also, after signing up successfully, it creates a table for the username in the msg_storage database.
+
+The authentication server uses the end2end module for encrypted communication with the clients.
+
+Usage-
+#. `sudo service postgresql start` : start the postgresql servers.
+#. `sudo -u postgres psql -f cleaner.sql` : Creates the required databases on the postgres server and drops the databases with the same name, if any. So run this only the first time you run the auth_server.
+#. `python3 auth_server.py` : this was tested using `python3.11`.
+"""
 import psycopg2
 import threading
 import socket
@@ -42,6 +57,7 @@ auth_server = socket.socket()
 auth_server.bind((host, port))
 auth_server.listen(1)
 
+#creates a separate thread for each client 
 while True:
     Client, address = auth_server.accept()
     print ("connected")

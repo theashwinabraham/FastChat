@@ -1,11 +1,26 @@
 import socket
 
 class Message:
+    """Class implementing the messaging protocol.
+
+    While sending, first, the size of the message is sent with a fixed size of 8 bytes. Next, the messsage is sent.
+
+    While receiving, first, the size is received, and then the appropriate number bytes are received for the actual message.
+    """
     #stores the maximum length of the size of the message represented in binary
     PRE_MSG_SIZE = 8
     MAX_PACKET_SZ = 4096        
     @classmethod
     def send(cls, msg: bytes, conn: socket.socket) -> bool:
+        """Sends the message to the server/client along with the message size.
+
+        :param msg: message to be sent
+        :type msg: bytes
+        :param conn: connection with the server/client
+        :type conn: socket.socket
+        :return: True if the message is within the size limit of 10^8 bytes, false otherwise.
+        :rtype: bool
+        """
         sz = str(len(msg))
         if(len(sz) > cls.PRE_MSG_SIZE):
             return False
@@ -14,6 +29,14 @@ class Message:
         return True
     @classmethod
     def recv(cls, conn: socket.socket) -> bytes:
+        """receives the message from the server/client.
+
+        :param conn: connection with the server/client
+        :type conn: socket.socket
+        :raises RuntimeError: raised if the connection is broken while receiving
+        :return: returns the received message
+        :rtype: bytes
+        """
         sz = conn.recv(cls.PRE_MSG_SIZE)
         if not sz:
             return sz

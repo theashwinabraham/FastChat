@@ -2,18 +2,20 @@ import threading
 import socket
 import end2end
 import json
-import sys
+# import sys
 import time
-import psycopg2
-import rsa
+# import psycopg2
+# import rsa
 from message import Message
 
-def parse_message(message):
-    l =  message.split("\n")
-    return [l[0], l[1]]
+# def parse_message(message):
+#     l =  message.split("\n")
+#     return [l[0], l[1]]
 
 #class to handle the clients(to receive and distribute messages)
 class client_handler:
+    """Class for receiving, forwarding and sending messages to clients.
+    """
     #stores the time interval after which the server checks for messages to be sent
     latency = 1
     #key which is used by the auth_server to recognize this as a server
@@ -27,6 +29,13 @@ class client_handler:
     
     def __init__(self, name, client) :
         #stores the pending messages to be sent to each client
+        """Constructor
+
+        :param name: username of the client associated with the given object
+        :type name: str
+        :param client: connection with the client
+        :type client: socket.socket
+        """
         self.message_buffer = []
         self.client_name = name
         self.client = client
@@ -35,6 +44,15 @@ class client_handler:
 
     #waits and receives messages from the client
     def multi_threaded_client(self, connection: socket.socket, sql_msg_conn, sql_grp_conn):
+        """Receives messages from the client.
+
+        :param connection: connection with the client
+        :type connection: socket.socket
+        :param sql_msg_conn: connection with msg_storage
+        :type sql_msg_conn: psycopg2.connection
+        :param sql_grp_conn: connection with groupdb
+        :type sql_grp_conn: psycopg2.connection
+        """        
         # print('reached here')
         connection.sendall(str.encode('Server is working:'))
         # print("REACHED HERE")
@@ -235,6 +253,11 @@ class client_handler:
         connection.close()
     #sends the messages to the client
     def send_messages(self, sql_msg_conn):
+        """Sends messages from msg_storage to the clients.
+
+        :param sql_msg_conn: connection with msg_storage
+        :type sql_msg_conn: psycopg2.connection
+        """
         cursor = sql_msg_conn.cursor()
         while self.isActive:
             # print(self.client_name)
@@ -288,6 +311,17 @@ class client_handler:
         # print(client_handler.active_threads, flush=True)
     @classmethod
     def authServerInterface(cls, auth_host, auth_port, id, port):
+        """Communicates with the auth_server
+
+        :param auth_host: host on which the auth_server is running
+        :type auth_host: str
+        :param auth_port: port on which the auth_server is running
+        :type auth_port: int
+        :param id: server id
+        :type id: int
+        :param port: server port
+        :type port: int
+        """
         communicator = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         communicator.connect((auth_host, auth_port))
         serverPayload = {'server_key':cls.server_key, 'id':id, 'port':port}

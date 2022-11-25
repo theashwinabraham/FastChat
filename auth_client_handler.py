@@ -10,7 +10,10 @@ import rsa
 # let each thread have its own cursor, cursors are not thread safe 
 # ref: https://www.geeksforgeeks.org/python-psycopg-cursor-class/#:~:text=Cursors%20are%20not%20thread%2Dsafe,used%20by%20a%20single%20thread.
 
+
 class auth_client_handler:
+    """Class implementing most of the functionality of the auth_server.
+    """
     host = '127.0.0.1'
     port = 10000
     ThreadCount = 0
@@ -18,6 +21,13 @@ class auth_client_handler:
     #interact with the user
     @classmethod
     def interact(cls, Client, auth_connection, msg_connection):
+        """Gets the username and password from the client, verifies it and sends the host and port back to the client as decided by the load balancer.
+
+        Args:
+            Client (socket.socket): Socket connected with the client
+            auth_connection (psycopg2.connection): connetion with the `authdb` database
+            msg_connection (psycopg2.connection): connection with the msg_storage database
+        """
         # assert(isinstance(Client, socket.socket))
         # auth_cursor = auth_connection.cursor()
         # msg_cursor = msg_connection.cursor()
@@ -57,6 +67,15 @@ class auth_client_handler:
         auth_connection.commit()
     @classmethod
     def validate_user(cls, auth_connection, auth_data):
+        """Validates the username and password sent by the client from the authdb database.
+
+        Args:
+            auth_connection (psycopg2.connection): connection with the `authdb` database
+            auth_data (dict): contains the username and password to be verified
+
+        Returns:
+            bool: returns if the verification is successful
+        """
         cursor = auth_connection.cursor()
         cmd = "SELECT * FROM AUTH_DATA WHERE USERNAME = '{usr}'".format(usr = auth_data['username'])
         cursor.execute(cmd)
@@ -67,6 +86,17 @@ class auth_client_handler:
         return False
     @classmethod
     def addUser(cls, auth_connection, auth_data, msg_connection):
+        """Adds a new user to the list of username and passwords. Also, it creates a table for the user in the msg_storage database.
+
+        :param auth_connection: connection with authdb
+        :type auth_connection: psycopg2.connection
+        :param auth_data: username and password of the user
+        :type auth_data: dict
+        :param msg_connection: connection with msg_storage
+        :type msg_connection: psycopg2.connection
+        :return: Returns False if the username is already taken, True otherwise
+        :rtype: bool
+        """              
         # assert(isinstance(cursor, psycopg2.cursor))
         auth_cursor = auth_connection.cursor()
         msg_cursor = msg_connection.cursor()
@@ -95,10 +125,19 @@ class auth_client_handler:
         return True
     
 class LoadBalancer:
-    loads = []
-    servers = {}
+    """Class used for load balancing among servers.
+    """
+    loads = [] #stores the loads on the servers
+    servers = {} #stores the servers
     @classmethod
     def getHostAndPort(cls, username):
+        """Returns the host and port of the main server to which the client is to be redirected, based on the load balancing strategy. Also sends an otp to the server as well as the client, which is used for verification when the client connects again.
+
+        :param username: username of the client
+        :type username: str
+        :return: dictionary containing the host, port and otp
+        :rtype: dict
+        """
         #add code to distribute the client load optimally among servers
         host = ports.server_host
         mindex = cls.loads.index(min(cls.loads))
@@ -110,6 +149,15 @@ class LoadBalancer:
         return {'host': host, 'port':port, 'otp': otp}
     @classmethod
     def addServer(cls, server, id, port):
+        """adds the server to the list of loads and servers.
+
+        :param server: server connection
+        :type server: socket.socket
+        :param id: server id
+        :type id: int
+        :param port: port number of the server
+        :type port: int
+        """
         print(f'LOAD BALANCER ADD: {cls.loads}, {cls.servers}')
         cls.loads.append([0, id])
         cls.servers[id] = (server, port)
