@@ -1,0 +1,46 @@
+n->servers
+m->clients
+avg wait b/w dms->t
+latency->lt
+throughput->tp
+================================test1=========================================================
+n = 1
+m = 20
+t = 500ms
+Message.MSG_LATENCY = 100ms
+
+Only dms are being sent sequentially from each user to every other user, 20 iterations 
+message: helloworld1
+
+result- graph looks like an exponential distribution(latency)
+avg-latency = 307ms
+inp_tp:  43.6214589566838 msg/s
+out_tp:  44.33343690488397 msg/s
+
+
+=================================test2=========================================================
+
+n = 5
+m = 50
+t = 0.5
+Message.MSG_LATENCY = 0.1
+
+Only dms are being sent sequentially from each user to every other user, 10 iterations 
+
+avg-latency:  372ms
+inp_tp:  128.3056638433508 msg/s
+out_tp:  133.762512874182 msg/s
+
+===============================test3=============================================================
+
+n = 3
+m = 20
+t = 0.5
+Message.MSG_LATENCY = 0.1
+
+dms and images(size 3.5MB) are being sent sequentially from each user to every other user, 10 iterations.
+approximately 10% of the messages are images.
+
+avg latency:  20587 ms
+inp_tp:  33.240113498978175 (for messages) 1.2192578624485713(for images) msgs/second
+out_tp:  27.629145204241546(for messages) 1.558774773419935(for images) msgs/second
