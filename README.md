@@ -10,7 +10,7 @@ This project aims to build a network of clients interacting with each other with
 
 [Problem Statement](https://docs.google.com/document/d/e/2PACX-1vQglWg-qGoA92pyHpn2IGVjrDX_jIKsN5EjgqCBtUnMUWoYqrsWrumPuW7wjOiqTBgtPDtuxKaJcW9D/pub)
 
-> **_NOTE:_**  This application has been written and tested using python 3.11. Hence, it may not be compatible with older versions.
+> **_NOTE:_**  This application has been written and tested using python 3.11 and 3.8. Hence, it may not be compatible with older versions.
 
 <h4> Features </h4>
 
@@ -103,3 +103,8 @@ The messages in the group are encrypted using a common Fernet key.
 When the admin adds another client to the group, the Fernet key of the group is shared with the new user by the admin. The **group Fernet key** is encrypted using the **direct messaging Fernet key**, which, if not present is generated and shared using steps 1-6 described in the previous section.
 
 Whenever a message is sent on the group by any member of the group, the server forwards this message to all other members of the group using the same method as direct messages are sent.
+
+<h4> Load Balancing Strategies </h4>
+- Naive Strategy: We randomly choose a server to assign to a client
+- Minimum Client Load Strategy: We choose the server with the minimum number of clients connected to assign to new clients
+- Minimum Message Load Strategy: We choose the server with the minimum bytes passing through the server per second to assign to new clients
