@@ -1,5 +1,5 @@
 import socket
-
+import time
 class Message:
     """Class implementing the messaging protocol.
 
@@ -9,7 +9,8 @@ class Message:
     """
     #stores the maximum length of the size of the message represented in binary
     PRE_MSG_SIZE = 8
-    MAX_PACKET_SZ = 4096        
+    MAX_PACKET_SZ = 4096   
+    MSG_LATENCY = 0.3 #models the time taken by an actual network to transfer data     
     @classmethod
     def send(cls, msg: bytes, conn: socket.socket) -> bool:
         """Sends the message to the server/client along with the message size.
@@ -21,6 +22,7 @@ class Message:
         :return: True if the message is within the size limit of 10^8 bytes, false otherwise.
         :rtype: bool
         """
+        time.sleep(cls.MSG_LATENCY)
         sz = str(len(msg))
         if(len(sz) > cls.PRE_MSG_SIZE):
             return False

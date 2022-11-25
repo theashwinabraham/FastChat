@@ -5,7 +5,7 @@ import os
 from os.path import exists
 
 
-NUM_CLIENTS = 8
+NUM_CLIENTS = 20
 
 if not exists("log"): os.makedirs("log")
 
@@ -26,10 +26,23 @@ class Client:
         
     def create_process(self)->None:
 
-
         for user in Client.users:
-            self.ps.sendline(f'dm, {user}, helloworld'.encode())
-            time.sleep(1)
+            self.ps.sendline(f'dm, {user}, helloworld1'.encode())
+
+        sleep(3)
+        for user in Client.users:
+            self.ps.sendline(f'dm, {user}, helloworld2'.encode())
+
+        sleep(3)
+        for user in Client.users:
+            self.ps.sendline(f'dm, {user}, helloworld3'.encode())
+
+        sleep(3)
+        for user in Client.users:
+            self.ps.sendline(f'dm, {user}, helloworld4'.encode())
+        # for user in Client.users:
+        #     self.ps.sendline(f'dm, {user}, helloworld'.encode())
+            # time.sleep(1)
 
         # for i in range(NUM_CLIENTS*2 ):
         #     self.log_file.write(self.ps.recvuntil(b"\n", 1) + b"\n")
@@ -38,9 +51,9 @@ class Client:
         # time.sleep(20)
     def close(self):
         # time.sleep(2)
-        for i in range(NUM_CLIENTS*2 ):
+        for i in range(NUM_CLIENTS*8 ):
             try:
-                self.log_file.write(self.ps.recvuntil(b"d", 2) + b"d")
+                self.log_file.write(self.ps.recvuntil(b"d", 5) + b"d")
                 self.log_file.flush()
             except:
                 pass
@@ -70,3 +83,4 @@ for thread in threads:
 
 for thread in closing_threads:
     thread.join()
+

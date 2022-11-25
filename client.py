@@ -764,9 +764,9 @@ def receive_messages(Client: socket.socket) -> None:
                 with open(f"{username}_keys.json", 'w') as key_file:
                     key_file.write(json.dumps(keys))
                 dict_lock.release()
-                t = str(time.time_ns())
-                msg_log_txt.write("received key, " + res['username'] + ", " + str(t), + "\n")
-                msg_log_txt.flush()
+                # t = str(time.time_ns())
+                # msg_log_txt.write("received key, " + res['username'] + ", " + str(t), + "\n")
+                # msg_log_txt.flush()
                 # print(keys[res['username']])
                 # self.messages = "connected to user "+ res["username"] + "\n" + self.messages
                 # print("connected to user "+ res["username"])
@@ -796,9 +796,9 @@ def receive_messages(Client: socket.socket) -> None:
                     key_file.write(json.dumps(keys))
                     
                 dict_lock.release()
-                t = str(time.time_ns())
-                msg_log_txt.write("added to group, " + res['username'] + ", " + str(t) + "\n")
-                msg_log_txt.flush()
+                # t = str(time.time_ns())
+                # msg_log_txt.write("added to group, " + res['username'] + ", " + str(t) + "\n")
+                # msg_log_txt.flush()
                 # self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
                 # print("added to group "+ res["username"].split('__')[1])
                 # print(decoded_msg)
@@ -826,20 +826,20 @@ def receive_messages(Client: socket.socket) -> None:
                 # print(decoded_msg)
                 if 'sender' in res.keys():
                     # self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg + "\n" + self.messages
-                    dis = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg
-                    print(dis)
-                    # print(res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg)
                     t = str(time.time_ns())
+                    dis = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg
+                    # print(res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg)
                     msg_log_txt.write(dis + ", " + str(t) + "\n")
                     msg_log_txt.flush()
+                    print(dis)
                 else:
                     # self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
                     # print(res["username"] + " sent: " + decoded_msg)
-                    dis = res["username"] + " sent: " + decoded_msg
-                    print(dis)
                     t = str(time.time_ns())
-                    msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    dis = res["username"] + " sent: " + decoded_msg
+                    msg_log_txt.write( f"recvd, {res['username']}, {decoded_msg}, {t}\n")
                     msg_log_txt.flush()
+                    print(dis)
             elif 'gd' in res.keys():
                 # delete from group
                 del keys[res['username']]
