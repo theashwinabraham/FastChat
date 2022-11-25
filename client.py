@@ -224,6 +224,7 @@ def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
         dict_lock.acquire()
         if receiver in keys.keys():
             fernet_key = base64.b64decode(keys[receiver].encode())
+            Message.send(b"None", Client)
         else:
             keys[receiver] = b64_fernet_key.decode()
             
@@ -296,6 +297,7 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
         dict_lock.acquire()
         if new_user in keys.keys():
             user_fernet_key = base64.b64decode(user_fernet_key.encode())
+            Message.send("None", Client)
         else:
             keys[new_user] = b64_fernet_key.decode()
             
