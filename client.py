@@ -94,7 +94,6 @@ def authenticate(server):
 
 def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
 
-    dict_lock.acquire()
     if receiver in keys.keys():
         global fernet_key
         fernet_key = keys[receiver]
@@ -117,18 +116,22 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
 
         fernet_key = Fernet.generate_key()
         b64_fernet_key = base64.b64encode(fernet_key)
-        keys[receiver] = b64_fernet_key.decode()
-        
-        # assert(fernet_key.decode().encode() == fernet_key)
-        encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
-        # print("encrypted key: ", encrypted_key)
-        # Client.sendall(encrypted_key)
-        Message.send(encrypted_key, Client)
 
-        with open(f"{username}_keys.json", 'w') as key_file:
-            key_file.write(json.dumps(keys))
+        dict_lock.acquire()
+        if receiver in keys.keys():
+            fernet_key = base64.b64decode(keys[receiver].encode())
+        else:
+            keys[receiver] = b64_fernet_key.decode()
+            
+            # assert(fernet_key.decode().encode() == fernet_key)
+            encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
+            # print("encrypted key: ", encrypted_key)
+            # Client.sendall(encrypted_key)
+            Message.send(encrypted_key, Client)
 
-    dict_lock.release()
+            with open(f"{username}_keys.json", 'w') as key_file:
+                key_file.write(json.dumps(keys))
+        dict_lock.release()
 
     f = Fernet(fernet_key)
     encoded_msg = f.encrypt(msg.encode('utf-8'))
@@ -139,7 +142,7 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
 
 def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
     if not exists(file_name): return False
-    dict_lock.acquire()
+
     if receiver in keys.keys():
         global fernet_key
         fernet_key = keys[receiver]
@@ -162,17 +165,22 @@ def send_file(file_name: str, receiver: str, Client: socket.socket) -> bool:
 
         fernet_key = Fernet.generate_key()
         b64_fernet_key = base64.b64encode(fernet_key)
-        keys[receiver] = b64_fernet_key.decode()
-        
-        # assert(fernet_key.decode().encode() == fernet_key)
-        encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
-        # print("encrypted key: ", encrypted_key)
-        # Client.sendall(encrypted_key)
-        Message.send(encrypted_key, Client)
 
-        with open(f"{username}_keys.json", 'w') as key_file:
-            key_file.write(json.dumps(keys))
-    dict_lock.release()
+        dict_lock.acquire()
+        if receiver in keys.keys():
+            fernet_key = base64.b64decode(keys[receiver].encode())
+        else:
+            keys[receiver] = b64_fernet_key.decode()
+            
+            # assert(fernet_key.decode().encode() == fernet_key)
+            encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
+            # print("encrypted key: ", encrypted_key)
+            # Client.sendall(encrypted_key)
+            Message.send(encrypted_key, Client)
+
+            with open(f"{username}_keys.json", 'w') as key_file:
+                key_file.write(json.dumps(keys))
+        dict_lock.release()
 
     f = Fernet(fernet_key)
     encoded_msg = f.encrypt(file_name.encode())
@@ -203,7 +211,6 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
     if(grp_fernet_key == ""):
         return False
 
-    dict_lock.acquire()
     user_fernet_key = ""
     if new_user in keys.keys():
         user_fernet_key = keys[new_user]
@@ -226,18 +233,22 @@ def add_to_grp(grp_name, new_user, Client: socket.socket) -> bool:
 
         user_fernet_key = Fernet.generate_key()
         b64_fernet_key = base64.b64encode(user_fernet_key)
-        keys[new_user] = b64_fernet_key.decode()
-        
-        # assert(fernet_key.decode().encode() == fernet_key)
-        encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
-        # print("encrypted key: ", encrypted_key)
-        # Client.sendall(encrypted_key)
-        Message.send(encrypted_key, Client)
 
-        with open(f"{username}_keys.json", 'w') as key_file:
-            key_file.write(json.dumps(keys))
-    dict_lock.release()
-    
+        dict_lock.acquire()
+        if new_user in keys.keys():
+            user_fernet_key = base64.b64decode(user_fernet_key.encode())
+        else:
+            keys[new_user] = b64_fernet_key.decode()
+            
+            # assert(fernet_key.decode().encode() == fernet_key)
+            encrypted_key = base64.b64encode(rsa.encrypt(b64_fernet_key, recv_pubkey))
+            # print("encrypted key: ", encrypted_key)
+            # Client.sendall(encrypted_key)
+            Message.send(encrypted_key, Client)
+
+            with open(f"{username}_keys.json", 'w') as key_file:
+                key_file.write(json.dumps(keys))
+        dict_lock.release()
     
     user_f = Fernet(user_fernet_key)
 
@@ -311,10 +322,12 @@ def make_grp(grp_name, Client: socket.socket) -> bool:
     
         grp_fernet_key = Fernet.generate_key()
         b64_grp_fernet_key = base64.b64encode(grp_fernet_key)
+        dict_lock.acquire()
         keys[grp_name] = b64_grp_fernet_key.decode()
    
         with open(f"{username}_keys.json", 'w') as key_file:
             key_file.write(json.dumps(keys))
+        dict_lock.release()
         return True
     else:
         return False
