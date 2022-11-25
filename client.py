@@ -497,27 +497,14 @@ class input_box(Widget):
                     self.messages = "connected to user "+ res["username"] + "\n" + self.messages
 
                 elif 'km' in res.keys():
-                    decoded_key = ""
-                    dict_lock.acquire()
-                    if res['username'] + "_temp" in keys.keys():
-                        f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                        # f2 = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                        try:
-                            decoded_key = f.decrypt(res['km']).decode()
-                            del keys[res['username'] + "_temp"]
-                            with open(f"{username}_keys.json", 'w') as key_file:
-                                key_file.write(json.dumps(keys))
-                        except:
-                            f = Fernet(base64.b64decode(keys[res['username'] + "_temp"].encode('utf-8')))
-                            decoded_key = f.decrypt(res['km']).decode()
-                    else:
-                        f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                        decoded_key = f.decrypt(res['km']).decode()
+                    f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
+                    decoded_key = f.decrypt(res['km']).decode()
                     keys[res['username']] = decoded_key
+                    self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
+                    # print(decoded_msg)
+                    # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
                     with open(f"{username}_keys.json", 'w') as key_file:
                         key_file.write(json.dumps(keys))
-                    dict_lock.release()
-                    self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
 
                 elif 'm' in res.keys():
 
@@ -828,37 +815,43 @@ def receive_messages(Client: socket.socket) -> None:
                 # print("connected to user "+ res["username"])
 
             elif 'km' in res.keys():
-                # f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
-                # decoded_key = f.decrypt(res['km']).decode()
-                decoded_key = ""
-                dict_lock.acquire()
-                if res['username'] + "_temp" in keys.keys():
-                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                    # f2 = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                    try:
-                        decoded_key = f.decrypt(res['km']).decode()
-                        del keys[res['username'] + "_temp"]
-                        with open(f"{username}_keys.json", 'w') as key_file:
-                            key_file.write(json.dumps(keys))
-                    except:
-                        f = Fernet(base64.b64decode(keys[res['username'] + "_temp"].encode('utf-8')))
-                        decoded_key = f.decrypt(res['km']).decode()
-                else:
-                    f = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
-                    decoded_key = f.decrypt(res['km']).decode()
+                # # f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
+                # # decoded_key = f.decrypt(res['km']).decode()
+                # decoded_key = ""
+                # dict_lock.acquire()
+                # if res['sender'] + "_temp" in keys.keys():
+                #     f = Fernet(base64.b64decode(keys[res['sender']].encode('utf-8')))
+                #     # f2 = Fernet(base64.b64decode(keys[res['username']].encode('utf-8')))
+                #     try:
+                #         decoded_key = f.decrypt(res['km']).decode()
+                #         del keys[res['sender'] + "_temp"]
+                #         with open(f"{username}_keys.json", 'w') as key_file:
+                #             key_file.write(json.dumps(keys))
+                #     except:
+                #         f = Fernet(base64.b64decode(keys[res['sender'] + "_temp"].encode('utf-8')))
+                #         decoded_key = f.decrypt(res['km']).decode()
+                # else:
+                #     f = Fernet(base64.b64decode(keys[res['sender']].encode('utf-8')))
+                #     decoded_key = f.decrypt(res['km']).decode()
 
+                # keys[res['username']] = decoded_key
+                # with open(f"{username}_keys.json", 'w') as key_file:
+                #     key_file.write(json.dumps(keys))
+                    
+                # dict_lock.release()
+                # # t = str(time.time_ns())
+                # # msg_log_txt.write("added to group, " + res['username'] + ", " + str(t) + "\n")
+                # # msg_log_txt.flush()
+                # # self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
+                # # print("added to group "+ res["username"].split('__')[1])
+                # # print(decoded_msg)
+                # # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
+                f = Fernet(base64.b64decode(keys[res['username'].split('__')[0]].encode('utf-8')))
+                decoded_key = f.decrypt(res['km']).decode()
                 keys[res['username']] = decoded_key
                 with open(f"{username}_keys.json", 'w') as key_file:
                     key_file.write(json.dumps(keys))
-                    
-                dict_lock.release()
-                # t = str(time.time_ns())
-                # msg_log_txt.write("added to group, " + res['username'] + ", " + str(t) + "\n")
-                # msg_log_txt.flush()
-                # self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
-                # print("added to group "+ res["username"].split('__')[1])
-                # print(decoded_msg)
-                # self.messages = res["username"] + " sent: " + decoded_key + "\n" + self.messages
+
 
             elif 'm' in res.keys():
                 decoded_msg = ""
