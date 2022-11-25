@@ -17,7 +17,7 @@ class client_handler:
     """Class for receiving, forwarding and sending messages to clients.
     """
     #stores the time interval after which the server checks for messages to be sent
-    latency = 1
+    latency = 0.1
     #key which is used by the auth_server to recognize this as a server
     server_key = "7ng#$(b4Wpd!f7zM"
 
