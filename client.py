@@ -163,6 +163,7 @@ def send_message(msg: str, receiver: str, Client: socket.socket) -> bool:
         dict_lock.acquire()
         if receiver in keys.keys():
             fernet_key = base64.b64decode(keys[receiver].encode())
+            Message.send(b"None" ,Client)
         else:
             keys[receiver] = b64_fernet_key.decode()
             

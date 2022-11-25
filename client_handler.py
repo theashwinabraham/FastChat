@@ -99,13 +99,13 @@ class client_handler:
                 shared_key = Message.recv(connection)
                 # print(shared_key)
                 print(shared_key)
-                
-                msg = {'k': shared_key.decode()}
-                msg = json.dumps(msg)
-                print(data['receiver'])
+                if(shared_key != "None"):
+                    msg = {'k': shared_key.decode()}
+                    msg = json.dumps(msg)
+                    print(data['receiver'])
 
-                msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (%(time)s, %(msg)s, %(user)s)".format(), {"time": time.time_ns(), 'msg':msg, 'user': self.client_name})
-                sql_msg_conn.commit()
+                    msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (%(time)s, %(msg)s, %(user)s)".format(), {"time": time.time_ns(), 'msg':msg, 'user': self.client_name})
+                    sql_msg_conn.commit()
 
             # Normal DMs (not first time)
             elif(data['action'] == 1):
@@ -261,7 +261,7 @@ class client_handler:
         cursor = sql_msg_conn.cursor()
         while self.isActive:
             # print(self.client_name)
-            cursor.execute(f"SELECT time, message, username, file FROM {self.client_name};")
+            cursor.execute(f"SELECT time, message, username, file FROM {self.client_name} ORDER BY time ASC;")
 
             for msg in cursor.fetchall():
                 print(msg)
