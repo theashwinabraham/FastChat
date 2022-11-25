@@ -99,7 +99,7 @@ class client_handler:
                 shared_key = Message.recv(connection)
                 # print(shared_key)
                 print(shared_key)
-                if(shared_key != "None"):
+                if(shared_key != b"None"):
                     msg = {'k': shared_key.decode()}
                     msg = json.dumps(msg)
                     print(data['receiver'])

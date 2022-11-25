@@ -5,3 +5,4 @@ rm log_*.txt
 rm *_keys.json
 rm -rf *_files
 rm -rf log/user*
+rm -rf msg_log/log*

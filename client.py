@@ -16,6 +16,7 @@ import base64
 from message import Message
 from os.path import exists
 import os.path
+import os
 import sys
 # imports for the UI
 from textual.app import App, ComposeResult
@@ -423,7 +424,9 @@ host, port, otp = (data['host'], data['port'], data['otp'])
 Client.close() # closing that connection
 time.sleep(1)
 
+if not exists("msg_log"): os.makedirs("msg_log")
 log_txt = open(f'log_{username}.txt', 'w')
+msg_log_txt = open(f'msg_log/log_{username}.txt', 'w')
 
 #connect to the new server
 Client = socket.socket()
@@ -651,17 +654,28 @@ def input_handler(cmd:str, recv:str, msg:str):
 
         if cmd[:3] == "del":
             if(recv == "" or cmd[4:] =="" ): return
+            t1 = str(time.time_ns())
             del_from_grp(recv, cmd[4:], Client)
+            t2 = str(time.time_ns())
+            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2) + "\n")
+            msg_log_txt.flush()
 
         elif cmd[:3] == "add":
             if(recv == "" or cmd[4:] ==""  ): return
+            t1 = str(time.time_ns())
             add_to_grp(recv, cmd[4:], Client)
+            t2 = str(time.time_ns())
+            log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2) + "\n")
+            log_txt.flush()
 
         elif cmd[:6] == "create":
             if(cmd[7:] =="" ): return
-            log_txt.write("reached")
-            log_txt.flush()
+
+            t1 = str(time.time_ns())
             make_grp(cmd[7:], Client)
+            t2 = str(time.time_ns())
+            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2)+ "\n")
+            msg_log_txt.flush()
             
         elif cmd[0] == "g":
             if(msg == "" or recv == ""): return
@@ -677,13 +691,18 @@ def input_handler(cmd:str, recv:str, msg:str):
                 recv = ""
                 return 
 
+            t1 = str(time.time_ns())
             if cmd[2:] == "file":
                 send_file(msg, grp_name, Client)
                 log_txt.write("sent file\n")
-                log_txt.flush()
             else:
                 send_message(msg, grp_name, Client)
             
+            t2 = str(time.time_ns())
+            log_txt.flush()
+            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2)+ "\n")
+            msg_log_txt.flush()
+
             # inbox.messages = "sent to grp " + recv + ": " + msg + "\n" + inbox.messages
             print("sent to grp " + recv + ": " + msg )
             # send_message(msg, grp_name, Client)
@@ -695,11 +714,15 @@ def input_handler(cmd:str, recv:str, msg:str):
             if msg == "" or recv == "": 
                 return  
 
+            t1 = str(time.time_ns())
             if cmd[3:] == "file":
                 send_file(msg, recv, Client)
             else:
                 send_message(msg, recv, Client)
-            
+            t2 = str(time.time_ns())
+            msg_log_txt.write(cmd + ", " + recv + ", " + msg + ", " + str(t1) + ", " + str(t2)+ "\n")
+            msg_log_txt.flush()
+
             # inbox.messages = "sent to " + recv + ": " + msg + "\n" + inbox.messages
             print("sent to " + recv + ": " + msg)
 
@@ -739,7 +762,9 @@ def receive_messages(Client: socket.socket) -> None:
                 with open(f"{username}_keys.json", 'w') as key_file:
                     key_file.write(json.dumps(keys))
                 dict_lock.release()
-                
+                t = str(time.time_ns())
+                msg_log_txt.write("received key, " + res['username'] + ", " + str(t), + "\n")
+                msg_log_txt.flush()
                 # print(keys[res['username']])
                 # self.messages = "connected to user "+ res["username"] + "\n" + self.messages
                 # print("connected to user "+ res["username"])
@@ -769,6 +794,9 @@ def receive_messages(Client: socket.socket) -> None:
                     key_file.write(json.dumps(keys))
                     
                 dict_lock.release()
+                t = str(time.time_ns())
+                msg_log_txt.write("added to group, " + res['username'] + ", " + str(t) + "\n")
+                msg_log_txt.flush()
                 # self.messages = "added to group "+ res["username"].split('__')[1]  + "\n" + self.messages
                 # print("added to group "+ res["username"].split('__')[1])
                 # print(decoded_msg)
@@ -796,16 +824,32 @@ def receive_messages(Client: socket.socket) -> None:
                 # print(decoded_msg)
                 if 'sender' in res.keys():
                     # self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg + "\n" + self.messages
-                    print(res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg)
+                    dis = res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg
+                    print(dis)
+                    # print(res['username'].split("__")[1] +": " + res["sender"] + " sent: " + decoded_msg)
+                    t = str(time.time_ns())
+                    msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    msg_log_txt.flush()
                 else:
                     # self.messages = res["username"] + " sent: " + decoded_msg + "\n" + self.messages
-                    print(res["username"] + " sent: " + decoded_msg)
+                    # print(res["username"] + " sent: " + decoded_msg)
+                    dis = res["username"] + " sent: " + decoded_msg
+                    print(dis)
+                    t = str(time.time_ns())
+                    msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    msg_log_txt.flush()
             elif 'gd' in res.keys():
                 # delete from group
                 del keys[res['username']]
-                print("removed from group " + res['username'])
                 with open(f"{username}_keys.json", 'w') as key_file:
                     key_file.write(json.dumps(keys))
+                # print("removed from group " + res['username'])
+                dis = "removed from group " + res['username']
+                print(dis)
+                t = str(time.time_ns())
+                msg_log_txt.write(dis + ", " + str(t) + "\n")
+                msg_log_txt.flush()
+
             elif 'c' in res.keys():
                 input_box.communicator_buffer = res['c'].encode()
                 log_txt.write(res['c'] + "\n")
@@ -840,10 +884,20 @@ def receive_messages(Client: socket.socket) -> None:
 
                 if 'sender' in res.keys():
                     # self.messages = res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name + "\n" + self.messages
-                    print(res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name)
+                    # print(res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name)
+                    dis = res['username'].split("__")[1] +": " + res["sender"] + " sent file: " + file_name
+                    print(dis)
+                    t = str(time.time_ns())
+                    msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    msg_log_txt.flush()
                 else:
                     # self.messages = res["username"] + " sent file: " + file_name + "\n" + self.messages
-                    print(res["username"] + " sent file: " + file_name)
+                    # print(res["username"] + " sent file: " + file_name)
+                    dis = res["username"] + " sent file: " + file_name
+                    print(dis)
+                    t = str(time.time_ns())
+                    msg_log_txt.write(dis + ", " + str(t) + "\n")
+                    msg_log_txt.flush()
 
         except Exception as e:
             log_txt.write(str(e) + "\n--------\n")
@@ -870,6 +924,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "--cmd":
     Client.shutdown(socket.SHUT_RDWR)
     Client.close()
     log_txt.close()
+    msg_log_txt.close()
 else:
     app = Chat(Client)
     try:
