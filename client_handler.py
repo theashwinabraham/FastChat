@@ -85,8 +85,8 @@ class client_handler:
                 msg = {'k': shared_key.decode()}
                 msg = json.dumps(msg)
                 print(data['receiver'])
-                # cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
-                msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(user)s)".format(), {"time": time.time(), 'msg':msg, 'user': self.client_name})
+
+                msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username) VALUES (%(time)s, %(msg)s, %(user)s)".format(), {"time": time.time_ns(), 'msg':msg, 'user': self.client_name})
                 sql_msg_conn.commit()
 
             # Normal DMs (not first time)
@@ -97,7 +97,7 @@ class client_handler:
                 # print(data['receiver'].rsplit("__"))
                 if(data['receiver'].rfind("__") == -1):
                     msg = json.dumps(msg)
-                    cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES (to_timestamp({time.time()}), '{msg}', '{self.client_name}')"""
+                    cmd = f"""INSERT INTO {data['receiver']} (time, message, username) VALUES ('{time.time_ns()}', '{msg}', '{self.client_name}')"""
                     # print(cmd)
                     msg_cursor.execute(cmd)
                     sql_msg_conn.commit()
@@ -106,9 +106,9 @@ class client_handler:
                     msg = json.dumps(msg)
                     grp_cursor.execute("SELECT USERNAME FROM " + data['receiver'] + f" WHERE USERNAME != '{self.client_name}'")
                     L = grp_cursor.fetchall()
-                    t = time.time()
+                    t = time.time_ns()
                     for users in L:
-                        cmd = f"""INSERT INTO {users[0]} (time, message, username) VALUES (to_timestamp({t}), '{msg}', '{data['receiver']}')"""
+                        cmd = f"""INSERT INTO {users[0]} (time, message, username) VALUES ('{t}', '{msg}', '{data['receiver']}')"""
                         msg_cursor.execute(cmd)
                         sql_msg_conn.commit()
         
@@ -124,7 +124,7 @@ class client_handler:
 
                     msg_dict = {'km':data['key']}
                     msg_dict = json.dumps(msg_dict)
-                    msg_cursor.execute(f"INSERT INTO {data['username']} (time, message, username) VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)", {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
+                    msg_cursor.execute(f"INSERT INTO {data['username']} (time, message, username) VALUES (%(time)s, %(msg)s, %(grp)s)", {"time": time.time_ns(), 'msg':msg_dict, 'grp': data['grp_name']})
                     sql_grp_conn.commit()
                     sql_msg_conn.commit()
 
@@ -189,7 +189,7 @@ class client_handler:
                     msg_dict = {'gd': data['grp_name']}
                     msg_dict = json.dumps(msg_dict)
                     msg_cursor.execute(f"INSERT INTO {data['username']} (time, message, username) \
-                    VALUES (to_timestamp(%(time)s), %(msg)s, %(grp)s)", {"time": time.time(), 'msg':msg_dict, 'grp': data['grp_name']})
+                    VALUES (%(time)s, %(msg)s, %(grp)s)", {"time": time.time_ns(), 'msg':msg_dict, 'grp': data['grp_name']})
                     sql_msg_conn.commit()
                     
                     self.lock.acquire()
@@ -217,16 +217,16 @@ class client_handler:
 
                 if(data['receiver'].rfind("__") == -1):
                     msg = json.dumps(msg)
-                    msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username, file) VALUES (to_timestamp(%s), %s, %s, %s)", (time.time(), msg, self.client_name, file))
+                    msg_cursor.execute("INSERT INTO " + data['receiver'] + " (time, message, username, file) VALUES (%s, %s, %s, %s)", (time.time_ns(), msg, self.client_name, file))
                     sql_msg_conn.commit()
                 else:
                     msg['sender'] = self.client_name
                     msg = json.dumps(msg)
                     grp_cursor.execute("SELECT USERNAME FROM " + data['receiver'] + f" WHERE USERNAME != '{self.client_name}'")
                     L = grp_cursor.fetchall()
-                    t = time.time()
+                    t = time.time_ns()
                     for users in L:
-                        msg_cursor.execute("INSERT INTO " + users[0] + " (time, message, username, file) VALUES (to_timestamp(%s), %s, %s, %s)", (time.time(), msg, data['receiver'], file))
+                        msg_cursor.execute("INSERT INTO " + users[0] + " (time, message, username, file) VALUES (%s, %s, %s, %s)", (time.time_ns(), msg, data['receiver'], file))
                         sql_msg_conn.commit()
                 
         print("closing the connection")
