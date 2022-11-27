@@ -6,7 +6,7 @@ from os.path import exists
 
 import random
 
-NUM_CLIENTS = 10
+NUM_CLIENTS = 20
 IMG_FILE = "jv_bokassa.png"
 MSG_SPEED = 5
 NUM_ITERATIONS = 5
@@ -74,22 +74,30 @@ time.sleep(2)
 servers_ps = [process(argv=["./server.py", str(1+i), str(9001+i)]) for i in range(NUM_SERVERS)]
 time.sleep(2)
 
-clients = [Client(f"{USER_PREFIX}{i}") for i in range(0, NUM_CLIENTS)]
-
-threads = [threading.Thread(target=Client.create_process, args=(client,)) for client in clients]
-for thread in threads[:int(len(threads)/2)]:
+clients1 = [Client(f"{USER_PREFIX}{i}") for i in range(0, int(NUM_CLIENTS/2))]
+print("LMAO")
+threads1 = [threading.Thread(target=Client.create_process, args=(client,)) for client in clients1]
+for thread in threads1:
     thread.start()
 
-time.sleep(10)
+print("LMAO1")
+time.sleep(5)
+print("LMAO2")
 
-for thread in threads[int(len(threads)/2):]:
+clients2 = [Client(f"{USER_PREFIX}{i}") for i in range(int(NUM_CLIENTS/2), NUM_CLIENTS)]
+threads2 = [threading.Thread(target=Client.create_process, args=(client,)) for client in clients2]
+for thread in threads2:
     thread.start()
 
-closing_threads = [threading.Thread(target=Client.close, args=(client,)) for client in clients]
+
+# for thread in threads[int(len(threads)/2):]:
+#     thread.start()
+
+closing_threads = [threading.Thread(target=Client.close, args=(client,)) for client in clients1+clients2]
 for thread in closing_threads:
     thread.start()
 
-for thread in threads:
+for thread in threads1+threads2:
     thread.join()
 
 for thread in closing_threads:
