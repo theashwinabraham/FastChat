@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # First client sends message to auth server containing uname, pwd
 # Stores in db and checks
 # If credentials don't match, then reject the user
